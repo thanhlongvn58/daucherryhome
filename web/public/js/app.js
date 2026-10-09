@@ -662,8 +662,8 @@ function chartLeave(e){ const box = e.target.closest && e.target.closest('.chart
    Shared fragments
    ========================================================= */
 function catIcon(id, kind){
-  if(kind==='income') return `<span class="cat-ico" style="background:var(--accent)">${ico('<path d="M12 19V5M6 11l6-6 6 6"/>')}</span>`;
-  const c = CAT[normCat(id)]; return `<span class="cat-ico" style="background:var(--c-${c.id})">${c.ab}</span>`;
+  if(kind==='income') return `<span class="cat-ico" style="--c:var(--accent)">${ico('<path d="M12 19V5M6 11l6-6 6 6"/>')}</span>`;
+  const c = CAT[normCat(id)]; return `<span class="cat-ico" style="--c:var(--c-${c.id})">${c.ab}</span>`;
 }
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 function whoTag(t){ return t.by ? `<img class="who" data-uid="${esc(t.by)}" alt="" src="${BLANK}">` : ''; }
@@ -1189,6 +1189,7 @@ function viewSettings(){
       </div>
     </div>
   </div>
+  ${viewAppearance()}
   ${viewMembers()}
   ${viewShortcuts()}`;
 }
@@ -1213,7 +1214,7 @@ function viewShortcuts(){
         </form>
         ${S.newToken? `<div class="token-box"><b>Mã của bạn — chỉ hiện một lần, hãy sao chép ngay:</b><code id="newToken">${esc(S.newToken)}</code><div class="top-actions">${copyBtn(S.newToken,'Sao chép mã')}${copyBtn('Bearer '+S.newToken,'Sao chép “Bearer + mã”')}<button class="btn xs ghost" type="button" data-hide-token>Đã lưu, ẩn đi</button></div></div>` : ''}
         <div class="list">${!S.tokens? '<div class="hint">Đang tải…</div>' : !S.tokens.length? '<div class="hint">Chưa có mã nào.</div>' :
-          S.tokens.map(t=>`<div class="row" style="grid-template-columns:auto minmax(0,1fr) auto"><span class="cat-ico" style="background:var(--accent)">${ico('<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>')}</span><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="s">Tạo ${fmtTs(t.createdAt)} · dùng gần nhất ${fmtTs(t.lastUsed)}</div></div><button class="btn xs danger" type="button" data-revoke-token="${esc(t.id)}">Thu hồi</button></div>`).join('')}</div>
+          S.tokens.map(t=>`<div class="row" style="grid-template-columns:auto minmax(0,1fr) auto"><span class="cat-ico" style="--c:var(--accent)">${ico('<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>')}</span><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="s">Tạo ${fmtTs(t.createdAt)} · dùng gần nhất ${fmtTs(t.lastUsed)}</div></div><button class="btn xs danger" type="button" data-revoke-token="${esc(t.id)}">Thu hồi</button></div>`).join('')}</div>
       </div>
       <div class="guide">
         <b class="flabel">Thông tin để điền vào Phím tắt</b>
@@ -1244,6 +1245,22 @@ function viewShortcuts(){
       </div>
     </div>
   </div>`;
+}
+/* ---------- appearance: light / dark / follow device ---------- */
+const THEME_LABEL = {auto:'Theo thiết bị', light:'Sáng', dark:'Tối'};
+const THEME_ICON = {
+  auto: '<path d="M12 3a9 9 0 1 0 0 18z" fill="currentColor"/><circle cx="12" cy="12" r="9"/>',
+  light: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+  dark: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+};
+const themeMode = () => window.STCTheme? STCTheme.get() : 'auto';
+function paintThemeBtn(){ const b=$('#themeBtn'); if(!b) return; const m=themeMode(); b.querySelector('svg').innerHTML=THEME_ICON[m]; b.title=b.ariaLabel='Giao diện: '+THEME_LABEL[m]+' (bấm để đổi)'; }
+function setTheme(m){ if(!window.STCTheme) return; STCTheme.set(m); paintThemeBtn(); }
+function viewAppearance(){
+  const m = themeMode();
+  return `<div class="card section-gap"><div class="card-h"><h2>Giao diện</h2><span class="sub">Lưu riêng trên thiết bị này</span></div>
+    <div class="theme-pick" role="radiogroup" aria-label="Chế độ giao diện">${['auto','light','dark'].map(k=>`<button type="button" role="radio" aria-checked="${m===k}" data-theme-set="${k}" class="theme-opt ${m===k?'on':''}"><span class="theme-prev ${k}"><i></i><i></i><i></i></span><span class="theme-name">${ico(THEME_ICON[k])}${THEME_LABEL[k]}</span><span class="hint">${k==='auto'?'Tự đổi theo cài đặt sáng/tối của điện thoại, máy tính':k==='light'?'Nền sáng, chữ đậm — dễ đọc ban ngày':'Nền tối, dịu mắt — dùng buổi tối'}</span></button>`).join('')}</div>
+    <p class="hint" style="margin:10px 0 0">Có thể đổi nhanh bằng nút ${ico(THEME_ICON[m])} ở góc trên.</p></div>`;
 }
 const ROLE_LABEL = {owner:'Chủ sổ', member:'Thành viên', viewer:'Chỉ xem'};
 const ROLE_HINT = {owner:'Toàn quyền, quản lý thành viên và khôi phục dữ liệu', member:'Ghi chép và sửa dữ liệu', viewer:'Chỉ xem, không sửa được'};
@@ -1403,6 +1420,7 @@ main.addEventListener('click', async e=>{
   if(d.copy!==undefined){ const txt=d.copy; try{ await navigator.clipboard.writeText(txt); toast('Đã sao chép'); }catch(e){ const r=document.createRange(); const el=t.parentElement.querySelector('code')||t; r.selectNodeContents(el); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); toast('Đã chọn sẵn, nhấn Ctrl+C để sao chép'); } return; }
   if('hideToken' in d){ S.newToken=null; render(); return; }
   if(d.revokeToken){ if(!arm(t,'Bấm lần nữa để thu hồi')) return; t.disabled=true; try{ await FIN.revokeToken(d.revokeToken); S.tokens=S.tokens.filter(x=>x.id!==d.revokeToken); toast('Đã thu hồi mã. Phím tắt dùng mã này sẽ ngừng hoạt động.'); render(); }catch(err){ toast(errMsg(err)); t.disabled=false; } return; }
+  if(d.themeSet){ setTheme(d.themeSet); render(); toast('Giao diện: '+THEME_LABEL[d.themeSet]); return; }
   if(d.setYear){ setYear(+d.setYear); return; }
   if('yearNow' in d){ setYear(curYear()); return; }
   if(d.cmp){ S.cmpMode=d.cmp; render(); return; }
@@ -1513,6 +1531,9 @@ async function saveCfg(patch){
   return write(()=>ref.set({...cfg(), ...patch}));
 }
 const quickKind = () => S.view==='emergency'? 'emergency' : S.view==='deposits'? 'savings' : 'expense';
+$('#themeBtn')?.addEventListener('click', ()=>{ const order=['auto','light','dark']; const next=order[(order.indexOf(themeMode())+1)%3]; setTheme(next); if(S.view==='settings') render(); toast('Giao diện: '+THEME_LABEL[next]); });
+document.addEventListener('themechange', ()=>{ paintThemeBtn(); scheduleRender(); });
+paintThemeBtn();
 $('#addBtn').addEventListener('click', ()=>openTx({kind:quickKind()}));
 $('#fab').addEventListener('click', ()=>openTx({kind:quickKind()}));
 window.addEventListener('beforeunload', e=>{ if(Object.keys(S.drafts).some(k=>k.startsWith('m:'))){ const dv=monthDraftValues(S.year,S.month); if(dv._dirty){ e.preventDefault(); e.returnValue=''; } } });

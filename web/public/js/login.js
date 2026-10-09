@@ -69,6 +69,14 @@
     }
   });
 
+  const tb = document.getElementById('themeBtn');
+  if (tb && window.STCTheme) {
+    const icons = { auto: '<path d="M12 3a9 9 0 1 0 0 18z" fill="currentColor"/><circle cx="12" cy="12" r="9"/>', light: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>', dark: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>' };
+    const labels = { auto: 'Theo thiết bị', light: 'Sáng', dark: 'Tối' };
+    const paint = () => { const m = STCTheme.get(); tb.querySelector('svg').innerHTML = icons[m]; tb.title = 'Giao diện: ' + labels[m] + ' (bấm để đổi)'; };
+    tb.addEventListener('click', () => { const order = ['auto', 'light', 'dark']; STCTheme.set(order[(order.indexOf(STCTheme.get()) + 1) % 3]); paint(); });
+    paint();
+  }
   fetch('/api/session', { credentials: 'same-origin' }).then(r => r.json()).then(r => {
     if (r.user) return location.replace(safeNext());
     setMode(!!r.needsSetup);
