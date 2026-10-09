@@ -1,0 +1,33 @@
+{
+  "exportedAt": "2026-01-01T00:00:00.000Z",
+  "note": "Dữ liệu mẫu cho kiểm thử — không phải số liệu thật",
+  "config": {
+    "openings": { "savings": 100000000, "emergency": 20000000, "asOf": "2025-12-31" },
+    "budgets": { "food": 8000000 },
+    "navHistory": { "2025": 150000000 },
+    "history": {},
+    "emergencyHistory": {},
+    "highRisk": 0,
+    "emergencyTarget": 6
+  },
+  "tx": [
+    { "id": "x2026-01-income", "date": "2026-01-31", "kind": "income", "cat": "income", "amount": 20000000, "note": "" },
+    { "id": "x2026-01-side", "date": "2026-01-31", "kind": "income", "cat": "side", "amount": 10000000, "note": "" },
+    { "id": "x2026-01-food", "date": "2026-01-31", "kind": "expense", "cat": "food", "amount": 7500000, "note": "" }
+  ],
+  "fund": [
+    { "id": "e2026-01-in", "date": "2026-01-31", "fund": "emergency", "type": "in", "amount": 5000000, "note": "Mẫu" }
+  ],
+  "deposits": [
+    { "id": "d1", "bank": "vcb", "label": "Sổ mẫu", "term": 12, "rate": 5, "amount": 100000000, "start": "2026-01-15", "maturity": "2027-01-15", "status": "active", "note": "" }
+  ],
+  "vcbf": [
+    { "id": "l01", "product": "sample-fund", "side": "buy", "date": "2026-01-10", "units": 1000, "price": 10000, "fee": 0 }
+  ],
+  "products": [
+    { "id": "sample-fund", "code": "MAU-01", "name": "Quỹ mẫu", "manager": "Mẫu", "type": "equity", "mode": "sip", "unit": "CCQ", "price": 10500, "priceDate": "2026-01-31" }
+  ],
+  "months": {
+    "2026-01": { "note": "Tháng mẫu" }
+  }
+}

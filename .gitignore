@@ -1,0 +1,20 @@
+# ── Dữ liệu tài chính thật của gia đình — KHÔNG BAO GIỜ đưa lên Git ──
+web/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.xlsx
+*.xls
+*.csv
+sao-luu-*.json
+
+# ── Cấu hình riêng của máy ──
+.env
+web/.env
+.claude/
+
+# ── Khác ──
+node_modules/
+.DS_Store
+Thumbs.db

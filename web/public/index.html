@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ Tài Chính Nhà Mình</title>
+<meta name="description" content="Quản lý tài chính gia đình: tài sản ròng, chi tiêu, quỹ khẩn cấp, sổ tiết kiệm và quỹ cho con.">
+<meta name="theme-color" content="#1B5C41">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/icon.svg?v=2" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tài Chính">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/css/app.css?v=12">
+<script src="/js/client.js?v=12" defer></script>
+<script src="/js/app.js?v=12" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua điều hướng</a>
+<div class="app">
+  <aside class="rail" aria-label="Điều hướng chính">
+    <div class="brand"><img class="brand-mark" src="/icon.svg?v=2" alt="" width="40" height="40"><div><b>Sổ Tài Chính</b><span>Nhà mình · <span id="brandYear"></span></span></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rail-foot">
+      <div class="sync" role="status"><span class="dot" id="syncDot"></span><span id="syncText">Đang kết nối…</span></div>
+      <div class="me" id="meBox"></div>
+    </div>
+  </aside>
+  <div class="main-wrap">
+    <header class="top">
+      <div><div class="eyebrow" id="pageEyebrow">Tổng quan</div><h1 id="pageTitle">Tài sản gia đình</h1></div>
+      <div class="top-actions">
+        <label class="year-pick" for="yearSel"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span class="sr-only">Năm làm việc</span><select id="yearSel" aria-label="Chọn năm"></select></label>
+        <button class="btn primary" id="addBtn" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Ghi chép</button>
+      </div>
+    </header>
+    <main id="main" tabindex="-1"></main>
+  </div>
+  <nav class="tabbar" id="tabbar" aria-label="Điều hướng chính"></nav>
+  <button class="fab" id="fab" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Ghi chép</button>
+</div>
+<div id="sheet" hidden><div class="scrim" data-close></div><div class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle" id="panel"></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

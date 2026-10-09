@@ -1,0 +1,36 @@
+# Chạy trên VPS: app + Caddy (tự cấp chứng chỉ HTTPS cho tên miền của bạn).
+#   1. Sửa DOMAIN trong tệp .env (vd: DOMAIN=taichinh.giadinh.vn)
+#   2. docker compose up -d --build
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: https://${DOMAIN:?Hãy đặt DOMAIN trong tệp .env}
+      TRUST_PROXY: "1"
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+    volumes:
+      - finance-data:/data
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  finance-data:
+  caddy-data:
+  caddy-config:

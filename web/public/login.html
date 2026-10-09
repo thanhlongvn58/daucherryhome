@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Đăng nhập · Sổ Tài Chính Nhà Mình</title>
+<meta name="theme-color" content="#1B5C41">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/icon.svg?v=2" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tài Chính">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/css/app.css?v=9">
+<script src="/js/login.js?v=9" defer></script>
+</head>
+<body>
+<div class="auth-page">
+  <section class="auth-side" aria-label="Giới thiệu">
+    <div class="brand"><img class="brand-mark" src="/icon.svg?v=2" alt="" width="40" height="40"><div><b>Sổ Tài Chính</b><span>Nhà mình</span></div></div>
+    <div>
+      <h2 class="auth-figure">Cùng lo hôm nay,<br>vững bước ngày mai.</h2>
+      <p class="auth-lede">Nhà mình cùng quản lý thu chi, dành dụm có kế hoạch và chuẩn bị cho những điều quan trọng. Từ mỗi quyết định hôm nay, cả nhà vun đắp một cuộc sống an tâm và nền tảng vững vàng cho thế hệ mai sau.</p>
+      <p class="auth-slogan">Dành dụm bằng sự hiểu biết. Vun đắp bằng yêu thương.</p>
+    </div>
+    <div class="auth-foot-side">
+      <ul class="auth-points">
+        <li><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Dữ liệu được lưu trên máy chủ của gia đình</li>
+        <li><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Mỗi người một tài khoản, cùng chăm lo theo vai trò</li>
+        <li><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Tự động sao lưu mỗi ngày</li>
+      </ul>
+      <p class="auth-sign">Gia đình Dâu &amp; Cherry · Cùng vun đắp từ 2024</p>
+    </div>
+  </section>
+  <main class="auth-main">
+    <form class="auth-card" id="authForm" novalidate>
+      <div>
+        <h1 id="authTitle">Chào nhà mình!</h1>
+        <p class="lead" id="authLead">Đăng nhập để cùng chăm lo tài chính gia đình.</p>
+      </div>
+      <div class="form-error" id="formError" role="alert" hidden></div>
+      <div class="field" id="nameField" hidden>
+        <label for="name">Tên hiển thị</label>
+        <input class="input" id="name" name="name" autocomplete="name" maxlength="40" placeholder="vd: Bố Dâu">
+        <span class="field-error" id="nameErr"></span>
+      </div>
+      <div class="field">
+        <label for="username">Tên đăng nhập</label>
+        <input class="input" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <span class="field-error" id="usernameErr"></span>
+      </div>
+      <div class="field">
+        <label for="password">Mật khẩu</label>
+        <div class="pw-wrap">
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+          <button class="pw-toggle" type="button" id="pwToggle" aria-controls="password" aria-pressed="false">Hiện</button>
+        </div>
+        <span class="hint" id="pwHint" hidden>Ít nhất 8 ký tự. Nên dùng một câu dễ nhớ.</span>
+        <span class="field-error" id="passwordErr"></span>
+      </div>
+      <button class="btn primary" type="submit" id="submitBtn">Đăng nhập</button>
+      <p class="auth-foot" id="authFoot">Quên mật khẩu? Nhờ người quản lý sổ đặt lại giúp bạn.</p>
+    </form>
+  </main>
+</div>
+</body>
+</html>
