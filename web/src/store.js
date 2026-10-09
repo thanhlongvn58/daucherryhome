@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS sessions (
   last_seen  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  name       TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  last_used  INTEGER
+);
 CREATE TABLE IF NOT EXISTS audit (
   at         INTEGER NOT NULL,
   user_id    TEXT,

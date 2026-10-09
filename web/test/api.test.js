@@ -186,3 +186,52 @@ test('live stream sends change events', async () => {
   assert.match(got, /"collection":"months"/);
   ctrl.abort();
 });
+
+test('iPhone shortcut tokens: summary, quick add, scope and revoke', async () => {
+  const created = await owner('POST', '/api/tokens', { name: 'iPhone của Bố' });
+  assert.equal(created.status, 200);
+  const tok = created.json.token;
+  assert.match(tok, /^stc_/);
+  assert.equal((await owner('GET', '/api/tokens')).json.tokens[0].name, 'iPhone của Bố');
+  const bearer = { Authorization: `Bearer ${tok}` };
+  const raw = (method, path, body, headers = {}) => fetch(base + path, { method, headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+
+  const sum = await raw('GET', '/api/shortcut/summary', undefined, bearer);
+  assert.equal(sum.status, 200);
+  assert.match(sum.headers.get('content-type'), /text\/plain/);
+  const sumText = await sum.text();
+  assert.match(sumText, /Sổ Tài Chính[\s\S]*Tài sản ròng/);
+  // fixture: savings 100tr + emergency 25tr + fund 1.000 CCQ × 10.500 = 135,5tr (catches a portfolio priced at 0)
+  assert.match(sumText, /Tài sản ròng: 135,5 tr/);
+
+  const none = await raw('GET', '/api/shortcut/summary');
+  assert.equal(none.status, 401);
+  assert.match(await none.text(), /^Lỗi: Thiếu mã phím tắt/);
+  assert.equal((await raw('GET', '/api/shortcut/summary', undefined, { Authorization: 'Bearer stc_sai' })).status, 401);
+
+  const before = (await owner('GET', '/api/c/tx')).json.docs.length;
+  const add = await raw('POST', '/api/shortcut/add', { danh_muc: 'ăn sáng', so_tien: '250k', ghi_chu: 'Phở' }, bearer);
+  assert.equal(add.status, 200);
+  assert.match(await add.text(), /^Đã ghi Ăn uống & sinh hoạt −250\.000 ₫/);
+  const form = await fetch(base + '/api/shortcut/add', { method: 'POST', headers: { ...bearer, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'loai=thu&danh_muc=thưởng&so_tien=1000000' });
+  assert.equal(form.status, 200);
+  const docs = (await owner('GET', '/api/c/tx')).json.docs;
+  assert.equal(docs.length, before + 2);
+  assert.ok(docs.some(d => d.data.cat === 'bonus' && d.data.kind === 'income' && d.data.amount === 1000000));
+
+  const bad = await raw('POST', '/api/shortcut/add', { danh_muc: 'xyz', so_tien: 100000 }, bearer);
+  assert.equal(bad.status, 400);
+  assert.match(await bad.text(), /Không nhận ra danh mục/);
+  // a shortcut token only opens the shortcut endpoints
+  assert.equal((await raw('GET', '/api/c/tx', undefined, bearer)).status, 401);
+
+  // read-only members cannot add through a shortcut
+  const v = client();
+  await v('POST', '/api/login', { username: 'ba.ngoai', password: '12345678' });
+  const vt = (await v('POST', '/api/tokens', { name: 'iPad' })).json.token;
+  assert.equal((await raw('POST', '/api/shortcut/add', { danh_muc: 'xăng', so_tien: 50000 }, { Authorization: `Bearer ${vt}` })).status, 403);
+
+  const id = (await owner('GET', '/api/tokens')).json.tokens[0].id;
+  assert.equal((await owner('DELETE', `/api/tokens/${id}`)).status, 200);
+  assert.equal((await raw('GET', '/api/shortcut/summary', undefined, bearer)).status, 401);
+});

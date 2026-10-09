@@ -167,6 +167,9 @@
     updateMember: (id, b) => api('PATCH', '/api/members/' + encodeURIComponent(id), b).then(r => { members = null; loadMembers(); if (id === session?.id && r.member) session = { ...session, ...r.member }; return r.member; }),
     removeMember: id => api('DELETE', '/api/members/' + encodeURIComponent(id)).then(() => { members = null; loadMembers(); }),
     importBackup: backup => api('POST', '/api/import', { backup }),
+    listTokens: () => api('GET', '/api/tokens').then(r => r.tokens),
+    createToken: name => api('POST', '/api/tokens', { name }),
+    revokeToken: id => api('DELETE', '/api/tokens/' + encodeURIComponent(id)),
     async logout() { try { await api('POST', '/api/logout', {}); } finally { location.replace('/login'); } },
   };
 })();

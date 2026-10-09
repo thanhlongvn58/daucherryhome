@@ -1189,9 +1189,62 @@ function viewSettings(){
       </div>
     </div>
   </div>
-  ${viewMembers()}`;
+  ${viewMembers()}
+  ${viewShortcuts()}`;
 }
 function navYears(){ const ys=[]; for(let k=firstYear(); k<curYear(); k++) ys.push(k); return ys; }
+/* ---------- iPhone Shortcuts (widget) ---------- */
+function loadTokens(){ if(S._tokensLoading || !window.FIN) return; S._tokensLoading=true;
+  FIN.listTokens().then(t=>{ S.tokens=t; }).catch(()=>{ S.tokens=[]; }).finally(()=>{ S._tokensLoading=false; scheduleRender(); }); }
+function copyBtn(text, label='Sao chép'){ return `<button class="btn xs" type="button" data-copy="${esc(text)}">${label}</button>`; }
+function viewShortcuts(){
+  const me = window.FIN?.session(); if(!me) return '';
+  if(!S.tokens) loadTokens();
+  const origin = location.origin, sumUrl = origin+'/api/shortcut/summary', addUrl = origin+'/api/shortcut/add';
+  const canAdd = me.role!=='viewer';
+  const fmtTs = ms => ms? fmtDateTime(new Date(ms)).slice(0,16) : 'chưa dùng';
+  return `<div class="card section-gap" id="shortcutCard"><div class="card-h"><h2>Phím tắt & widget iPhone</h2><span class="sub">Dùng ứng dụng Phím tắt có sẵn của Apple</span></div>
+    <div class="grid g-split">
+      <div class="stack" style="gap:14px">
+        <p class="hint" style="margin:0">Ứng dụng web không tạo được widget riêng; ứng dụng <b>Phím tắt</b> của iPhone làm thay: đặt widget ra màn hình chính để <b>xem tình hình</b> hoặc <b>ghi chi tiêu</b> mà không cần mở ứng dụng. Mỗi người tạo một mã cho iPhone của mình; mã chỉ dùng được cho hai việc này và có thể thu hồi bất cứ lúc nào.</p>
+        <form id="tokenForm" class="row2" novalidate style="align-items:end">
+          <div class="field"><label for="tk-name">Tên thiết bị</label><input class="input" id="tk-name" maxlength="40" value="iPhone của ${esc(me.name)}"></div>
+          <div><button class="btn primary" type="submit">${ico(ICONS.plus)}Tạo mã phím tắt</button></div>
+        </form>
+        ${S.newToken? `<div class="token-box"><b>Mã của bạn — chỉ hiện một lần, hãy sao chép ngay:</b><code id="newToken">${esc(S.newToken)}</code><div class="top-actions">${copyBtn(S.newToken,'Sao chép mã')}${copyBtn('Bearer '+S.newToken,'Sao chép “Bearer + mã”')}<button class="btn xs ghost" type="button" data-hide-token>Đã lưu, ẩn đi</button></div></div>` : ''}
+        <div class="list">${!S.tokens? '<div class="hint">Đang tải…</div>' : !S.tokens.length? '<div class="hint">Chưa có mã nào.</div>' :
+          S.tokens.map(t=>`<div class="row" style="grid-template-columns:auto minmax(0,1fr) auto"><span class="cat-ico" style="background:var(--accent)">${ico('<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>')}</span><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="s">Tạo ${fmtTs(t.createdAt)} · dùng gần nhất ${fmtTs(t.lastUsed)}</div></div><button class="btn xs danger" type="button" data-revoke-token="${esc(t.id)}">Thu hồi</button></div>`).join('')}</div>
+      </div>
+      <div class="guide">
+        <b class="flabel">Thông tin để điền vào Phím tắt</b>
+        <dl class="kv1">
+          <div><dt>Xem tình hình (GET)</dt><dd><code>${esc(sumUrl)}</code>${copyBtn(sumUrl)}</dd></div>
+          ${canAdd? `<div><dt>Ghi chi tiêu (POST, JSON)</dt><dd><code>${esc(addUrl)}</code>${copyBtn(addUrl)}</dd></div>` : ''}
+          <div><dt>Tiêu đề (Headers)</dt><dd><code>Authorization</code> = <code>Bearer &lt;mã&gt;</code></dd></div>
+          ${canAdd? `<div><dt>Trường gửi đi</dt><dd><code>danh_muc</code> (vd: ăn uống, xăng, khám bệnh) · <code>so_tien</code> (250000 hoặc 250k) · <code>ghi_chu</code> · <code>loai</code> = chi / thu</dd></div>` : ''}
+        </dl>
+        <details class="howto" open><summary>Tạo phím tắt “Xem tình hình”</summary><ol>
+          <li>Mở ứng dụng <b>Phím tắt</b> › <b>+</b> › <b>Thêm tác vụ</b> › <b>Lấy nội dung của URL</b>; dán địa chỉ “Xem tình hình”.</li>
+          <li>Bấm <b>›</b> mở rộng › <b>Tiêu đề</b> › Thêm: khóa <code>Authorization</code>, giá trị <code>Bearer</code> + mã (dùng nút “Sao chép Bearer + mã”).</li>
+          <li>Thêm tác vụ <b>Hiển thị kết quả</b>. Đặt tên phím tắt “Tài chính hôm nay”.</li>
+        </ol></details>
+        ${canAdd? `<details class="howto"><summary>Tạo phím tắt “Ghi chi tiêu”</summary><ol>
+          <li><b>Danh sách</b>: nhập các mục Ăn uống, Đi lại, Giúp việc, Điện nước, Mua sắm, Khám cho con, Phí quản lý.</li>
+          <li><b>Chọn từ danh sách</b> (lời nhắc: “Chi cho gì?”).</li>
+          <li><b>Yêu cầu đầu vào</b> › Số (lời nhắc: “Số tiền?”); thêm một <b>Yêu cầu đầu vào</b> Văn bản cho ghi chú nếu muốn.</li>
+          <li><b>Lấy nội dung của URL</b>: dán địa chỉ “Ghi chi tiêu”, <b>Phương thức</b> POST, thêm tiêu đề Authorization như trên, <b>Nội dung yêu cầu</b> JSON với các trường <code>danh_muc</code> = Mục đã chọn, <code>so_tien</code> = Đầu vào đã cung cấp, <code>ghi_chu</code> = ghi chú.</li>
+          <li>Thêm <b>Hiển thị thông báo</b> với kết quả để thấy “Đã ghi … ₫”.</li>
+        </ol></details>` : ''}
+        <details class="howto"><summary>Đặt widget ra màn hình chính</summary><ol>
+          <li>Chạm giữ màn hình chính › <b>Sửa</b> › <b>Thêm tiện ích</b> › <b>Phím tắt</b>.</li>
+          <li>Chọn cỡ widget, bấm <b>Thêm tiện ích</b>, rồi chạm vào widget để chọn phím tắt “Tài chính hôm nay” / “Ghi chi tiêu”.</li>
+          <li>Có thể thêm vào màn hình khóa hoặc Trung tâm điều khiển theo cách tương tự.</li>
+        </ol></details>
+        <p class="hint">Mở thẳng ô ghi chép trong ứng dụng: <code>${esc(origin)}/#ghi-chep</code> ${copyBtn(origin+'/#ghi-chep')}</p>
+      </div>
+    </div>
+  </div>`;
+}
 const ROLE_LABEL = {owner:'Chủ sổ', member:'Thành viên', viewer:'Chỉ xem'};
 const ROLE_HINT = {owner:'Toàn quyền, quản lý thành viên và khôi phục dữ liệu', member:'Ghi chép và sửa dữ liệu', viewer:'Chỉ xem, không sửa được'};
 let restoreData=null;
@@ -1266,6 +1319,7 @@ function render(){
   const ae = document.activeElement;
   if(ae && $('#main').contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.type!=='radio' && ae.type!=='file'){ pendingRender=true; return; }
   pendingRender=false; aggCache.clear();
+  if(S.pendingQuick && S.canWrite && Object.values(S.loaded).every(Boolean)){ const k=S.pendingQuick; S.pendingQuick=null; setTimeout(()=>openTx({kind:k}),50); }
   if(!S._yearChecked && Object.values(S.loaded).every(Boolean)){ S._yearChecked=true; setTimeout(maybeCloseYear, 500); }
   const v = VIEWS[S.view] || VIEWS.overview; const g = v.group;
   $('#pageTitle').textContent = v.title;
@@ -1307,7 +1361,8 @@ setInterval(()=>{
 /* =========================================================
    Routing & events
    ========================================================= */
-function route(){ let h=(location.hash||'').slice(1); if(h==='funds') h='emergency'; S.view = VIEWS[h]? h : 'overview'; render(); window.scrollTo(0,0); }
+function route(){ let h=(location.hash||'').slice(1); if(h==='funds') h='emergency';
+  if(h==='ghi-chep'||h==='ghi-chi'||h==='ghi-thu'){ S.pendingQuick = h==='ghi-thu'? 'income' : 'expense'; h='overview'; try{ history.replaceState(null,'','#overview'); }catch(e){} } S.view = VIEWS[h]? h : 'overview'; render(); window.scrollTo(0,0); }
 window.addEventListener('hashchange', route);
 const main = $('#main');
 document.addEventListener('input', e=>{
@@ -1345,6 +1400,9 @@ main.addEventListener('click', async e=>{
   const t = e.target.closest('button, a, td[data-goto], tr[data-edit-lot], tr[data-product], tr[data-goto-row], tr[data-href], tr[data-set-year], path[data-seg]'); if(!t) return;
   const d = t.dataset;
   if(d.seg){ revealDonut(d.seg); return; }
+  if(d.copy!==undefined){ const txt=d.copy; try{ await navigator.clipboard.writeText(txt); toast('Đã sao chép'); }catch(e){ const r=document.createRange(); const el=t.parentElement.querySelector('code')||t; r.selectNodeContents(el); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); toast('Đã chọn sẵn, nhấn Ctrl+C để sao chép'); } return; }
+  if('hideToken' in d){ S.newToken=null; render(); return; }
+  if(d.revokeToken){ if(!arm(t,'Bấm lần nữa để thu hồi')) return; t.disabled=true; try{ await FIN.revokeToken(d.revokeToken); S.tokens=S.tokens.filter(x=>x.id!==d.revokeToken); toast('Đã thu hồi mã. Phím tắt dùng mã này sẽ ngừng hoạt động.'); render(); }catch(err){ toast(errMsg(err)); t.disabled=false; } return; }
   if(d.setYear){ setYear(+d.setYear); return; }
   if('yearNow' in d){ setYear(curYear()); return; }
   if(d.cmp){ S.cmpMode=d.cmp; render(); return; }
@@ -1401,6 +1459,9 @@ main.addEventListener('input', e=>{
 main.addEventListener('submit', async e=>{
   const f = e.target; e.preventDefault();
   if(f.id==='monthForm'){ saveMonth(); return; }
+  if(f.id==='tokenForm'){ const btn=f.querySelector('button[type=submit]'); btn.disabled=true;
+    try{ const r=await FIN.createToken($('#tk-name').value.trim()); S.newToken=r.token; S.tokens=[r.item, ...(S.tokens||[])]; render(); $('#shortcutCard')?.scrollIntoView({behavior:'smooth',block:'start'}); toast('Đã tạo mã. Sao chép ngay, mã chỉ hiện một lần.'); }
+    catch(err){ toast(errMsg(err)); } finally{ btn.disabled=false; } return; }
   if(f.dataset.fundForm){
     const fund = f.dataset.fundForm, k='ff:'+fund+':';
     const type = (f.querySelector('input[type=radio]:checked')||{}).value || 'in';
