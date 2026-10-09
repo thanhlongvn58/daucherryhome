@@ -1,0 +1,16 @@
+{
+  "name": "daucherryhome",
+  "version": "1.0.0",
+  "description": "Sổ Tài Chính Nhà Mình — the app lives in web/; this file lets hosts that build from the repo root start it.",
+  "private": true,
+  "type": "module",
+  "main": "web/server.js",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning web/server.js",
+    "build": "echo \"No build step needed\"",
+    "test": "cd web && npm test"
+  }
+}
