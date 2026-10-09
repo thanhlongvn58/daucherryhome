@@ -8,6 +8,7 @@ services:
     environment:
       PUBLIC_URL: https://${DOMAIN:?Hãy đặt DOMAIN trong tệp .env}
       TRUST_PROXY: "1"
+      MDNS_NAME: ""
       BACKUP_KEEP: ${BACKUP_KEEP:-14}
     volumes:
       - finance-data:/data

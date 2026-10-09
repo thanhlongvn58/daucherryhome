@@ -43,6 +43,20 @@ Bạn cần hai thứ:
 1. **Một tên miền**, ví dụ `taichinh.giadinh.vn`. Mua ở nhà đăng ký như Mắt Bão, PA Vietnam, Tenten, Namecheap hoặc Cloudflare.
 2. **Một nơi chạy máy chủ có ổ đĩa lưu trữ lâu dài**, vì SQLite cần ổ đĩa. Các dịch vụ chỉ chạy hàm "serverless" như Vercel hay Netlify **không** dùng được.
 
+### Cách A1 — Hostinger VPS (một lệnh)
+
+1. **hPanel › VPS**: chọn hệ điều hành *Ubuntu 24.04* (hoặc mẫu *Ubuntu with Docker*), ghi lại **địa chỉ IP** của VPS.
+2. **hPanel › Tên miền › daucherryhome.cloud › DNS / Nameservers**: xóa các bản ghi `A` của `@` hiện có và bản ghi `CNAME` của `www`, rồi thêm `A @ → IP VPS` và `A www → IP VPS`.
+3. **hPanel › VPS › Terminal trên trình duyệt** (hoặc SSH vào `root@IP`), chạy:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/thanhlongvn58/daucherryhome/main/web/deploy/setup-vps.sh | bash -s daucherryhome.cloud
+   ```
+
+4. Mở `https://daucherryhome.cloud`, tạo tài khoản quản lý sổ, vào **Thiết lập › Khôi phục từ bản sao lưu** và tải lên tệp `.json` xuất từ máy ở nhà.
+
+Chạy lại đúng lệnh ở bước 3 để cập nhật lên bản mới nhất; dữ liệu nằm trong volume Docker và được giữ nguyên.
+
 ### Cách A — VPS + Docker (khuyên dùng, khoảng 100–150 nghìn đồng/tháng)
 
 Có thể thuê VPS ở Vultr, DigitalOcean, Hetzner, hoặc nhà cung cấp trong nước như Viettel IDC, BizFly Cloud. Gói 1 vCPU, 1 GB RAM là đủ.
