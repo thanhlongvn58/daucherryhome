@@ -4,13 +4,13 @@
   "description": "Sổ Tài Chính Gia Đình — family finance tracker, self-hosted on your own domain",
   "private": true,
   "type": "module",
-  "main": "server.js",
+  "main": "start.cjs",
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env server.js",
-    "dev": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env --watch server.js",
+    "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env start.cjs",
+    "dev": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env --watch start.cjs",
     "import": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/import.js",
     "backup": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/backup.js",
     "reset-password": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/reset-password.js",

@@ -4,12 +4,12 @@
   "description": "Sổ Tài Chính Nhà Mình — the app lives in web/; this file lets hosts that build from the repo root start it.",
   "private": true,
   "type": "module",
-  "main": "web/server.js",
+  "main": "web/start.cjs",
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning web/server.js",
+    "start": "node web/start.cjs",
     "build": "echo \"No build step needed\"",
     "test": "cd web && npm test"
   }

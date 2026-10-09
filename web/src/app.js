@@ -292,15 +292,20 @@ export function createApp(cfg) {
 
   return {
     server, store, auth,
+    /** `port` is a number, or a socket / pipe path handed over by a web server (e.g. LiteSpeed). */
     listen(port = cfg.port, host = cfg.host) {
-      return new Promise(resolve => server.listen(port, host, () => {
-        if (cfg.backupHours > 0) {
-          rotateBackups();
-          timers.push(setInterval(rotateBackups, cfg.backupHours * 3600_000));
-        }
-        timers.push(setInterval(() => auth.purgeExpired(), 6 * 3600_000));
-        resolve(server.address());
-      }));
+      return new Promise((resolve, reject) => {
+        const ready = () => {
+          if (cfg.backupHours > 0) {
+            rotateBackups();
+            timers.push(setInterval(rotateBackups, cfg.backupHours * 3600_000));
+          }
+          timers.push(setInterval(() => auth.purgeExpired(), 6 * 3600_000));
+          resolve(server.address());
+        };
+        server.once('error', reject);
+        if (typeof port === 'string') server.listen(port, ready); else server.listen(port, host, ready);
+      });
     },
     close() {
       return new Promise(resolve => {

@@ -14,7 +14,8 @@ export function loadConfig(env = process.env, overrides = {}) {
   const mdnsRaw = (env.MDNS_NAME ?? 'taichinh').trim();
   const cfg = {
     root: ROOT,
-    port: Number(env.PORT || 3000),
+    // A number, or a socket path when a web server such as LiteSpeed starts the app.
+    port: /^\d+$/.test(String(env.PORT ?? '').trim()) ? Number(env.PORT) : (String(env.PORT ?? '').trim() || 3000),
     host: env.HOST || '0.0.0.0',
     dataDir: path.resolve(ROOT, expandHome((env.DATA_DIR || 'data').trim())),
     publicDir: path.join(ROOT, 'public'),
