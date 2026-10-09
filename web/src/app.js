@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { openStore, COLLECTIONS, ID_RE, backupToDocs } from './store.js';
 import { createAuth, httpError, ROLES } from './auth.js';
-import { buildSummary, addFromShortcut } from './shortcut.js';
+import { buildSummary, addFromShortcut, shortcutLang, shortcutMessage } from './shortcut.js';
 
 const COOKIE = 'stc_session';
 const MIME = {
@@ -217,12 +217,12 @@ export function createApp(cfg) {
   // iPhone Shortcuts: plain-text answers (add ?format=json for JSON). Auth: "Authorization: Bearer stc_…".
   const sendText = (res, status, text) => { res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(text); };
   route('GET', '/api/shortcut/summary', ({ res, url }) => {
-    const s = buildSummary(store);
+    const s = buildSummary(store, new Date(), url.searchParams.get('lang'));
     if (url.searchParams.get('format') === 'json') send(res, 200, s.data); else sendText(res, 200, s.text);
   }, { token: true, raw: true });
   route('POST', '/api/shortcut/add', async ({ req, res, user, url }) => {
     needRole(user, 'owner', 'member');
-    const r = addFromShortcut(store, user, await readBody(req));
+    const r = addFromShortcut(store, user, await readBody(req), url.searchParams.get('lang'));
     broadcast('tx');
     if (url.searchParams.get('format') === 'json') send(res, 200, { ok: true, message: r.message, doc: r.doc }); else sendText(res, 200, r.message);
   }, { token: true, raw: true });
@@ -301,7 +301,7 @@ export function createApp(cfg) {
       if (status >= 500) console.error(`[${new Date().toISOString()}] ${req.method} ${pathname}`, e);
       const message = status >= 500 ? 'Máy chủ gặp lỗi. Thử lại sau.' : e.message;
       if (res.headersSent) res.end();
-      else if (r?.token && url.searchParams.get('format') !== 'json') { res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); res.end('Lỗi: ' + message); }
+      else if (r?.token && url.searchParams.get('format') !== 'json') { res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); const lang = shortcutLang(url.searchParams.get('lang')); res.end(shortcutMessage(lang, 'Lỗi: ') + (e.translated ? message : shortcutMessage(lang, message))); }
       else send(res, status, { code: e.code || 'unavailable', message });
     } finally {
       if (cfg.logRequests && pathname !== '/api/stream') console.log(`${req.method} ${pathname} ${res.statusCode} ${Date.now() - started}ms`);

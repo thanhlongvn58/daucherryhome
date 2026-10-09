@@ -541,7 +541,7 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 .theme-btn svg{transition:transform .25s ease}
 .theme-btn:hover svg{transform:rotate(18deg)}
 .auth-main{position:relative}
-.auth-theme{position:absolute;top:16px;right:16px}
+.auth-tools{position:absolute;top:16px;right:16px;display:flex;gap:8px;align-items:center;z-index:2}
 .theme-pick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .theme-opt{display:flex;flex-direction:column;gap:8px;align-items:flex-start;text-align:left;padding:12px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .theme-opt.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -559,3 +559,20 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 .cat-ico{background:color-mix(in srgb, var(--c, var(--accent)) 74%, #000)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .cat-ico{background:var(--c, var(--accent))}}
 :root[data-theme="dark"] .cat-ico{background:var(--c, var(--accent))}
+
+/* ---------- language switch ---------- */
+.lang-sel{position:relative;display:inline-flex;align-items:center;gap:5px;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--accent);cursor:pointer}
+.lang-sel:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.lang-sel .lang-code{font-family:var(--font-num);font-weight:700;font-size:13px;color:var(--ink);letter-spacing:.04em}
+.lang-sel select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
+@media (pointer:coarse){.lang-sel{height:44px}}
+.lang-pick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.lang-opt{display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.lang-opt.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.lang-opt .lang-code{font-family:var(--font-num);font-weight:700;font-size:12px;letter-spacing:.06em;color:var(--accent)}
+.lang-opt .lang-name{font-weight:650;font-size:15px}
+.lang-opt .hint{font-size:11.5px}
+@media (max-width:640px){.lang-pick{grid-template-columns:minmax(0,1fr)}.lang-opt{flex-direction:row;align-items:baseline;flex-wrap:wrap;column-gap:10px}}
+/* Japanese: keep Latin digits from the brand fonts, use a Japanese face for kana/kanji */
+:root:lang(ja){--font-ui:"Be Vietnam Pro","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic","Meiryo","Noto Sans JP",system-ui,sans-serif}
+:lang(ja) .hint,:lang(ja) .plan li,:lang(ja) .insight .d{line-break:strict;word-break:normal;overflow-wrap:anywhere}

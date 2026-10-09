@@ -5,40 +5,48 @@
    so sub-pages and the overview always agree and update live together.
    ========================================================= */
 
+/* ---------- language ----------
+   Texts are written in Vietnamese and translated by L() (public/js/i18n.js + i18n-dict.js).
+   Label tables below keep the Vietnamese text and translate on every read, so a language switch only needs a re-render. */
+const I = window.STCI18n;
+const L = (s, vars) => I.t(s, vars);
+function i18nize(o, fields=Object.keys(o)){ for(const f of fields){ const raw=o[f]; Object.defineProperty(o, f, {get:()=>L(raw), enumerable:true, configurable:true}); } return o; }
+
 /* ---------- constants ---------- */
 const CATS = [
-  {id:'mgmt',      name:'Phí quản lý',           ab:'QL'},
-  {id:'util',      name:'Điện, nước, wifi',      ab:'ĐN'},
-  {id:'helper',    name:'Giúp việc, dọn dẹp',    ab:'GV'},
-  {id:'transport', name:'Đi lại',                ab:'ĐL'},
-  {id:'food',      name:'Ăn uống & sinh hoạt',   ab:'ĂU'},
-  {id:'other',     name:'Mua sắm, sửa chữa',     ab:'MS'},
-  {id:'kids',      name:'Bỉm sữa, khám cho con', ab:'BS'},
-];
+  {id:'mgmt',      name:'Phí quản lý',           abs:['QL','MG','管']},
+  {id:'util',      name:'Điện, nước, wifi',      abs:['ĐN','UT','光']},
+  {id:'helper',    name:'Giúp việc, dọn dẹp',    abs:['GV','HS','家']},
+  {id:'transport', name:'Đi lại',                abs:['ĐL','TR','交']},
+  {id:'food',      name:'Ăn uống & sinh hoạt',   abs:['ĂU','FD','食']},
+  {id:'other',     name:'Mua sắm, sửa chữa',     abs:['MS','SH','買']},
+  {id:'kids',      name:'Bỉm sữa, khám cho con', abs:['BS','KD','子']},
+].map(c=>i18nize(c,['name']));
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
+const catAb = c => c.abs[{vi:0,en:1,ja:2}[I.get()]||0];
 const INCOME_CATS = [
   {id:'income', name:'Thu nhập tháng'},
   {id:'salary', name:'Lương'},
   {id:'bonus',  name:'Thưởng'},
   {id:'side',   name:'Thu nhập phụ'},
-];
+].map(c=>i18nize(c,['name']));
 const INC = Object.fromEntries(INCOME_CATS.map(c=>[c.id,c]));
 const FUNDS = {
-  savings:   {name:'Sổ tiết kiệm',          short:'Tiết kiệm'},
-  kids:      {name:'Quỹ cho con',           short:'Cho con'},
-  risk:      {name:'Đầu tư rủi ro cao',     short:'Đầu tư'},
-  emergency: {name:'Quỹ khẩn cấp',          short:'Khẩn cấp'},
+  savings:   i18nize({name:'Sổ tiết kiệm',          short:'Tiết kiệm'}),
+  kids:      i18nize({name:'Quỹ cho con',           short:'Cho con'}),
+  risk:      i18nize({name:'Đầu tư rủi ro cao',     short:'Đầu tư'}),
+  emergency: i18nize({name:'Quỹ khẩn cấp',          short:'Khẩn cấp'}),
 };
 const FUND_TYPES = {
-  savings:   {in:'Nạp vào', out:'Rút ra', interest:'Nhận lãi'},
-  emergency: {in:'Thu vào', out:'Chi ra'},
+  savings:   i18nize({in:'Nạp vào', out:'Rút ra', interest:'Nhận lãi'}),
+  emergency: i18nize({in:'Thu vào', out:'Chi ra'}),
 };
-const fundTypeLabel = (f,t) => FUND_TYPES[f]?.[t] || ({in:'Thu vào',out:'Chi ra',interest:'Nhận lãi'})[t] || t;
+const fundTypeLabel = (f,t) => FUND_TYPES[f]?.[t] || L(({in:'Thu vào',out:'Chi ra',interest:'Nhận lãi'})[t] || t);
 const EMERGENCY_MIN = 3;
 /* Banks operating in Vietnam. `ab` is the 3-letter mark shown on badges: the stock ticker for listed banks,
    otherwise the bank's common short code. Colours approximate each brand; an official logo file in
    /banks/<key>.svg replaces the badge. */
-const BANK_GROUPS = {state:'Ngân hàng thương mại có vốn Nhà nước', jsc:'Ngân hàng TMCP', foreign:'Ngân hàng 100% vốn nước ngoài & liên doanh', policy:'Ngân hàng chính sách & hợp tác'};
+const BANK_GROUPS = i18nize({state:'Ngân hàng thương mại có vốn Nhà nước', jsc:'Ngân hàng TMCP', foreign:'Ngân hàng 100% vốn nước ngoài & liên doanh', policy:'Ngân hàng chính sách & hợp tác'});
 const BANKS = {
   vcb:   {g:'state',   ab:'VCB', name:'Vietcombank',     full:'Ngân hàng TMCP Ngoại thương Việt Nam',          c1:'#00703C', c2:'#8DC63F', al:['vietcombank','ngoai thuong']},
   bidv:  {g:'state',   ab:'BID', name:'BIDV',            full:'Ngân hàng TMCP Đầu tư và Phát triển Việt Nam',  c1:'#006B68', c2:'#FDB913', al:['bidv']},
@@ -96,9 +104,9 @@ function bankBadge(name, size=''){
   const k = bankKey(name); const b = k && BANKS[k];
   if(k && BANK_LOGOS[k]) return `<span class="bk logo ${size}" title="${esc(b.name)}"><img src="${esc(BANK_LOGOS[k])}" alt="${esc(b.name)}"></span>`;
   if(b) return `<span class="bk ${size}" style="--b1:${b.c1};--b2:${b.c2}" title="${esc(b.name)} – ${esc(b.full)}" aria-label="${esc(b.name)}">${b.ab}</span>`;
-  return `<span class="bk ${size}" style="--b1:var(--ink-2);--b2:var(--muted)" title="${esc(name||'Khác')}">${esc(noAccent(name||'khac').replace(/[^a-z0-9]/gi,'').slice(0,3).toUpperCase()||'—')}</span>`;
+  return `<span class="bk ${size}" style="--b1:var(--ink-2);--b2:var(--muted)" title="${esc(name||L('Khác'))}">${esc(noAccent(name||'khac').replace(/[^a-z0-9]/gi,'').slice(0,3).toUpperCase()||'—')}</span>`;
 }
-const bankName = name => { const k=bankKey(name); return k? BANKS[k].name : (String(name||'').trim()||'Khác'); };
+const bankName = name => { const k=bankKey(name); return k? BANKS[k].name : (String(name||'').trim()||L('Khác')); };
 const ICONS = {
   overview:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
   spending:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
@@ -115,17 +123,18 @@ const GROUPS = [
   {id:'spending', label:'Chi tiêu',           tab:'Chi tiêu'},
   {id:'invest',   label:'Tiết kiệm & đầu tư', tab:'Tiết kiệm'},
   {id:'settings', label:'Thiết lập',          tab:'Thiết lập'},
-];
+].map(g=>i18nize(g,['label','tab']));
 const VIEWS = {
   overview:  {group:'overview', title:'Tài sản gia đình'},
   spending:  {group:'spending', title:'Chi tiêu sinh hoạt'},
-  invest:    {group:'invest',   title:'Tiết kiệm & đầu tư', sub:'Tổng hợp thông tin'},
+  invest:    {group:'invest',   title:'Tiết kiệm & đầu tư'},
   deposits:  {group:'invest',   title:'Sổ tiết kiệm'},
   emergency: {group:'invest',   title:'Quỹ khẩn cấp'},
   kids:      {group:'invest',   title:'Quỹ cho con'},
   settings:  {group:'settings', title:'Thiết lập & dữ liệu'},
 };
-const INVEST_TABS = [['invest','Tổng hợp thông tin'],['deposits','Sổ tiết kiệm'],['emergency','Quỹ khẩn cấp'],['kids','Quỹ cho con']];
+for(const v of Object.values(VIEWS)) i18nize(v,['title']);
+const INVEST_TABS = [['invest','Tổng hợp thông tin'],['deposits','Sổ tiết kiệm'],['emergency','Quỹ khẩn cấp'],['kids','Quỹ cho con']].map(x=>i18nize(x,[1]));
 const DEFAULT_CFG = {
   openings:{savings:0, emergency:0, asOf:''},
   budgets:{}, navHistory:{}, history:{}, emergencyHistory:{},
@@ -150,20 +159,13 @@ let db=null, user=null;
 const $ = (s,el=document)=>el.querySelector(s);
 const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const nf = new Intl.NumberFormat('vi-VN');
-const vnd = n => nf.format(Math.round(n||0));
-function compact(n){
-  n = +n||0; const a=Math.abs(n), s=n<0?'−':'';
-  if(a>=1e9) return s+(a/1e9).toLocaleString('vi-VN',{maximumFractionDigits:2})+' tỷ';
-  if(a>=1e6) return s+(a/1e6).toLocaleString('vi-VN',{maximumFractionDigits:1})+' tr';
-  if(a>=1e3) return s+Math.round(a/1e3)+'k';
-  return s+Math.round(a);
-}
-const pct = (x,d=1) => (!isFinite(x)? '—' : (x>=0?'+':'−')+Math.abs(x*100).toLocaleString('vi-VN',{minimumFractionDigits:d,maximumFractionDigits:d})+'%');
-const pctPlain = (x,d=1) => (!isFinite(x)? '—' : (x*100).toLocaleString('vi-VN',{minimumFractionDigits:d,maximumFractionDigits:d})+'%');
+const vnd = n => I.int(n);
+const compact = n => I.compact(n);
+const pct = (x,d=1) => (!isFinite(x)? '—' : (x>=0?'+':'−')+I.num(Math.abs(x*100),d,d)+'%');
+const pctPlain = (x,d=1) => (!isFinite(x)? '—' : I.num(x*100,d,d)+'%');
 const signed = n => (n>0?'+':n<0?'−':'')+vnd(Math.abs(n));
 const signedC = n => (n>0?'+':n<0?'−':'')+compact(Math.abs(n));
-const fmt1 = n => (+n||0).toLocaleString('vi-VN',{maximumFractionDigits:1});
+const fmt1 = n => I.num(n,1);
 const pad = n => String(n).padStart(2,'0');
 const toISO = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const todayISO = () => toISO(new Date());
@@ -173,53 +175,60 @@ function parseDMY(str){ const m=String(str||'').trim().match(/^(\d{1,2})[\/.\-](
   const dt=new Date(+m[3],+m[2]-1,+m[1]); return (dt.getFullYear()===+m[3] && dt.getMonth()===+m[2]-1 && dt.getDate()===+m[1]) ? toISO(dt) : null; }
 /** Date input that always reads/writes DD/MM/YYYY; the calendar button opens the browser picker. */
 function dateInput(id, val, attrs=''){ const shown = /^\d{4}-\d{2}-\d{2}$/.test(val||'')? fmtDate(val) : (val||'');
-  return `<div class="date-box"><input class="input num" id="${id}" data-date inputmode="numeric" autocomplete="off" placeholder="DD/MM/YYYY" maxlength="10" value="${esc(shown)}" ${attrs}><button type="button" class="date-btn" data-pick="${id}" aria-label="Chọn ngày trên lịch">${ico(ICONS.cal)}</button><input type="date" class="date-native" tabindex="-1" aria-hidden="true" data-native-for="${id}"></div>`; }
-function readDate(id){ const el=document.getElementById(id); const v=parseDMY(el?.value); if(!v && el){ el.setAttribute('aria-invalid','true'); el.focus(); toast('Ngày chưa đúng định dạng DD/MM/YYYY'); } return v; }
+  return `<div class="date-box"><input class="input num" id="${id}" data-date inputmode="numeric" autocomplete="off" placeholder="DD/MM/YYYY" maxlength="10" value="${esc(shown)}" ${attrs}><button type="button" class="date-btn" data-pick="${id}" aria-label="${L('Chọn ngày trên lịch')}">${ico(ICONS.cal)}</button><input type="date" class="date-native" tabindex="-1" aria-hidden="true" data-native-for="${id}"></div>`; }
+function readDate(id){ const el=document.getElementById(id); const v=parseDMY(el?.value); if(!v && el){ el.setAttribute('aria-invalid','true'); el.focus(); toast(L('Ngày chưa đúng định dạng DD/MM/YYYY')); } return v; }
 function parseISO(s){ const [y,m,d]=String(s).split('-').map(Number); return new Date(y,(m||1)-1,d||1); }
 function addMonths(iso,n){ const d=parseISO(iso); const day=d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n); const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); d.setDate(Math.min(day,last)); return toISO(d); }
 const daysBetween = (a,b) => Math.round((parseISO(b)-parseISO(a))/86400000);
 const ymKey = (y,m) => y+'-'+pad(m);
 const lastDayISO = (y,m) => toISO(new Date(y,m,0));
-const monthLabel = (y,m) => 'Tháng '+m+'/'+y;
+const monthLabel = (y,m) => I.monthLabel(y,m);
+const monthIn = (y,m) => I.monthIn(y,m);
+const mShort = m => I.mShort(m);
+const mYShort = (m,y) => I.mYShort(m,y);
 const sum = (arr,f=x=>x) => arr.reduce((s,x)=>s+(+f(x)||0),0);
 function niceMax(v){ if(v<=0) return 1; const p=10**Math.floor(Math.log10(v)); const n=v/p; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p; }
 const ico = (paths,cls='ico') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
 const normCat = c => CAT[c]? c : 'other';
 const isClosed = d => d.status==='closed';
 
-/* Vietnamese shorthand: 250k, 1tr2, 2.5tr, 1ty5, 150k+80k+1tr */
+/* Shorthand in every language: 250k, 1tr2, 2.5tr, 1ty5, 2.5m, 1.2b/bn, 25万, 1億2000万, 150k+80k+1tr */
 function parseAmount(str){
-  let s = String(str??'').toLowerCase().replace(/\s+/g,'').replace(/₫|vnđ|vnd|đ/g,'');
+  let s = String(str??'').toLowerCase().replace(/\s+/g,'').replace(/₫|vnđ|vnd|đ|ドン/g,'');
   if(!s) return NaN;
-  const units = {'tỷ':1e9,ty:1e9,b:1e9,'triệu':1e6,trieu:1e6,tr:1e6,m:1e6,'nghìn':1e3,nghin:1e3,k:1e3,n:1e3};
+  const units = {'tỷ':1e9,ty:1e9,bn:1e9,b:1e9,'triệu':1e6,trieu:1e6,tr:1e6,m:1e6,'nghìn':1e3,nghin:1e3,k:1e3,n:1e3,'億':1e8,'万':1e4,'千':1e3};
+  const tok = /(\d+(?:[.,]\d+)?)(tỷ|ty|bn|b|triệu|trieu|tr|m|nghìn|nghin|k|n|億|万|千)/y;
   let total = 0;
   for(const p of s.split('+')){
     if(!p) return NaN;
-    const m = p.match(/^(\d+(?:[.,]\d+)?)(tỷ|ty|b|triệu|trieu|tr|m|nghìn|nghin|k|n)(\d*)$/);
-    if(m){ const u = units[m[2]]; let v = parseFloat(m[1].replace(',','.'))*u; if(m[3]) v += parseFloat('0.'+m[3])*u; total += v; continue; }
     if(/^\d{1,3}([.,]\d{3})+$/.test(p) || /^\d+$/.test(p)){ total += parseInt(p.replace(/[.,]/g,''),10); continue; }
-    return NaN;
+    tok.lastIndex = 0; let m, n = 0, last = 0, v = 0, lastUnit = 0;
+    while((m = tok.exec(p))){ lastUnit = units[m[2]]; v += parseFloat(m[1].replace(',','.'))*lastUnit; last = tok.lastIndex; n++; }
+    if(!n) return NaN;
+    const rest = p.slice(last);
+    if(rest){ if(!/^\d+$/.test(rest)) return NaN;
+      if(n===1 && !/[億万千]/.test(p)) v += parseFloat('0.'+rest)*lastUnit;   // 1tr2 = 1.2 triệu
+      else v += +rest; }                                                     // 1億2000万500 → +500
+    total += v;
   }
   return Math.round(total);
 }
-function parseDecimal(str){ const s=String(str??'').trim().replace(/\s/g,''); if(!s) return NaN;
-  if(/,\d+$/.test(s)) return parseFloat(s.replace(/\./g,'').replace(',','.'));
-  return parseFloat(s.replace(/,/g,'')); }
+const parseDecimal = s => I.parseDecimal(s);
 const cfg = () => ({...DEFAULT_CFG, ...(S.cfg||{}), openings:{...DEFAULT_CFG.openings, ...((S.cfg||{}).openings||{})}, budgets:{...((S.cfg||{}).budgets||{})}, emergencyHistory:{...((S.cfg||{}).emergencyHistory||{})}});
 
 let toastT;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2800); }
 function errMsg(e){
   const c = e && e.code;
-  if(e && e.message && /[À-ỹ]/.test(e.message) && c!=='unavailable') return e.message;
-  if(c==='permission_denied') return 'Tài khoản của bạn không có quyền thực hiện thao tác này.';
-  if(c==='invalid_argument') return 'Không lưu được: dữ liệu chưa hợp lệ.';
-  if(c==='resource_exhausted') return 'Thao tác quá nhanh. Đợi vài giây rồi thử lại.';
-  if(c==='revoked') return 'Phiên đăng nhập đã thay đổi. Tải lại trang.';
-  return 'Không lưu được. Kiểm tra kết nối rồi thử lại.';
+  if(e && e.message && /[À-ỹ]/.test(e.message) && c!=='unavailable') return I.tMsg(e.message);
+  if(c==='permission_denied') return L('Tài khoản của bạn không có quyền thực hiện thao tác này.');
+  if(c==='invalid_argument') return L('Không lưu được: dữ liệu chưa hợp lệ.');
+  if(c==='resource_exhausted') return L('Thao tác quá nhanh. Đợi vài giây rồi thử lại.');
+  if(c==='revoked') return L('Phiên đăng nhập đã thay đổi. Tải lại trang.');
+  return L('Không lưu được. Kiểm tra kết nối rồi thử lại.');
 }
 async function write(fn){
-  if(!db){ toast('Chưa kết nối được máy chủ. Kiểm tra mạng rồi tải lại trang.'); return false; }
+  if(!db){ toast(L('Chưa kết nối được máy chủ. Kiểm tra mạng rồi tải lại trang.')); return false; }
   try{ await fn(); return true; }
   catch(e){
     if(e && e.code==='unavailable'){ await new Promise(r=>setTimeout(r,600+Math.random()*600)); try{ await fn(); return true; }catch(e2){ toast(errMsg(e2)); return false; } }
@@ -277,8 +286,8 @@ function setYear(y){
 function avgMonthlyExpense(){
   const rows=[]; let y=curYear(), m=curMonth()+1;
   for(let k=0;k<12;k++){ m--; if(m<1){m=12;y--;} const a=monthAgg(y)[m-1]; if(a.exp>0) rows.push({y,m,exp:a.exp}); }
-  if(rows.length){ const o=rows[rows.length-1], l=rows[0]; return {avg: sum(rows,r=>r.exp)/rows.length, n:rows.length, basis:`${rows.length} tháng gần nhất có số liệu (${pad(o.m)}/${o.y} – ${pad(l.m)}/${l.y})`}; }
-  const p = yearSummary(curYear()-1); if(p) return {avg:p.exp/p.months, n:p.months, basis:'năm '+(curYear()-1)};
+  if(rows.length){ const o=rows[rows.length-1], l=rows[0]; return {avg: sum(rows,r=>r.exp)/rows.length, n:rows.length, basis:L('{n} tháng gần nhất có số liệu ({from} – {to})', {n:rows.length, from:pad(o.m)+'/'+o.y, to:pad(l.m)+'/'+l.y})}; }
+  const p = yearSummary(curYear()-1); if(p) return {avg:p.exp/p.months, n:p.months, basis:L('năm {y}', {y:curYear()-1})};
   return {avg:0,n:0,basis:''};
 }
 /** Average of up to 12 earlier months (crossing years) that have records. */
@@ -311,8 +320,8 @@ function fundYearFlows(f){
    products: one document per fund / instrument, each with its own current price.
    lots (collection "vcbf"): every buy/sell, tagged with its product id. Totals = sum over products. */
 const LEGACY_PRODUCT = 'vcbf-mgf';
-const PRODUCT_TYPES = {equity:'Quỹ cổ phiếu', bond:'Quỹ trái phiếu', balanced:'Quỹ cân bằng', stock:'Cổ phiếu', gold:'Vàng', other:'Khác'};
-const PRODUCT_MODES = {sip:'Định kỳ (SIP)', lump:'Mua một lần'};
+const PRODUCT_TYPES = i18nize({equity:'Quỹ cổ phiếu', bond:'Quỹ trái phiếu', balanced:'Quỹ cân bằng', stock:'Cổ phiếu', gold:'Vàng', other:'Khác'});
+const PRODUCT_MODES = i18nize({sip:'Định kỳ (SIP)', lump:'Mua một lần'});
 const MANAGERS = ['VCBF','Dragon Capital (DCVFM)','SSIAM','VinaCapital','Techcom Capital (TCAM)','MB Capital','Mirae Asset','Manulife IM','VinaWealth','Bảo Việt Fund','Công ty chứng khoán','Khác'];
 const PRODUCT_COLORS = ['var(--c-kids)','var(--c-mgmt)','var(--c-util)','var(--c-transport)','var(--c-helper)','var(--c-other)','var(--c-food)'];
 function products(){
@@ -339,9 +348,11 @@ function portfolio(){
   return t;
 }
 function vcbfStats(){ const t = portfolio(); return {value:t.value, cost:t.cost, pl:t.pl, plPct:t.plPct, n:t.items.length, tx:t.tx}; }
-const productLabel = p => p.code || p.name || 'Sản phẩm';
-const fmtUnits = u => (+u||0).toLocaleString('vi-VN',{maximumFractionDigits:2});
-const fmtPrice = p => (+p||0).toLocaleString('vi-VN',{maximumFractionDigits:2});
+const productLabel = p => p.code || p.name || L('Sản phẩm');
+/** Units are stored as typed (CCQ, cổ phiếu…); the common ones are shown in the reader's language. */
+const unitLabel = u => u? L(u) : '';
+const fmtUnits = u => I.num(u,2);
+const fmtPrice = p => I.num(p,2);
 function depCalc(d){
   const mat = depMaturity(d); const today = todayISO();
   const totalDays = Math.max(1, daysBetween(d.start, mat));
@@ -376,7 +387,7 @@ async function maybeCloseYear(){
   const py = curYear()-1; const c = cfg();
   if(!S.canWrite || c.navHistory[py] || py<=ledgerStartYear()) return;
   const est = navEstimate(py);
-  if(await saveCfg({navHistory:{...c.navHistory,[py]:Math.round(est.total)}, navParts:{...(c.navParts||{}),[py]:est.parts}})) toast(`Đã chốt tài sản ròng cuối năm ${py}: ${vnd(est.total)} ₫`);
+  if(await saveCfg({navHistory:{...c.navHistory,[py]:Math.round(est.total)}, navParts:{...(c.navParts||{}),[py]:est.parts}})) toast(L('Đã chốt tài sản ròng cuối năm {y}: {v} ₫', {y:py, v:vnd(est.total)}));
 }
 function emergencyStats(){
   const c = cfg(); const bal = fundBalance('emergency'); const {avg, basis} = avgMonthlyExpense();
@@ -385,23 +396,23 @@ function emergencyStats(){
   return {bal, avg, basis, target, months, days: Math.round(months*30), targetAmt: avg*target, minAmt: avg*EMERGENCY_MIN,
     gap: bal-avg*target, minProgress: avg? bal/(avg*EMERGENCY_MIN) : 0, yearIn: fl.in, yearOut: fl.out, yearNet: fl.in-fl.out};
 }
-function txLabel(t){ return t.kind==='income' ? (INC[t.cat]?.name||'Thu nhập') : (CAT[t.cat]?.name||'Khác'); }
+function txLabel(t){ return t.kind==='income' ? (INC[t.cat]?.name||L('Thu nhập')) : (CAT[t.cat]?.name||L('Khác')); }
 
 function alerts(){
   const out = []; const c = cfg();
   for(const d of activeDeposits()){
     const k = depCalc(d);
-    if(k.status==='matured') out.push({lv:'neg', t:`Sổ ${d.bank||''} ${compact(d.amount)} đã đến hạn ${fmtDate(k.mat)}`, d:'Cập nhật: tái tục (sửa ngày gửi) hoặc đánh dấu Đã tất toán.', go:'deposits'});
-    else if(k.status==='soon') out.push({lv:'warn', t:`Sổ ${d.bank||''} ${compact(d.amount)} đáo hạn sau ${k.left} ngày`, d:`Ngày ${fmtDate(k.mat)} · lãi dự kiến ${compact(k.atMat)}.`, go:'deposits'});
+    if(k.status==='matured') out.push({lv:'neg', t:L('Sổ {bank} {amt} đã đến hạn {date}', {bank:d.bank||'', amt:compact(d.amount), date:fmtDate(k.mat)}), d:L('Cập nhật: tái tục (sửa ngày gửi) hoặc đánh dấu Đã tất toán.'), go:'deposits'});
+    else if(k.status==='soon') out.push({lv:'warn', t:L('Sổ {bank} {amt} đáo hạn sau {n} ngày', {bank:d.bank||'', amt:compact(d.amount), n:k.left}), d:L('Ngày {date} · lãi dự kiến {v}.', {date:fmtDate(k.mat), v:compact(k.atMat)}), go:'deposits'});
   }
   const y=curYear(), m=curMonth(); const a = monthAgg(y)[m-1];
-  for(const cat of CATS){ const b=+c.budgets[cat.id]||0; if(b && a.cats[cat.id]>b) out.push({lv:'warn', t:`${cat.name} vượt ngân sách tháng ${m}`, d:`Đã chi ${compact(a.cats[cat.id])} / ${compact(b)} (+${compact(a.cats[cat.id]-b)}).`, go:'spending'}); }
+  for(const cat of CATS){ const b=+c.budgets[cat.id]||0; if(b && a.cats[cat.id]>b) out.push({lv:'warn', t:L('{cat} vượt ngân sách {month}', {cat:cat.name, month:monthIn(y,m)}), d:L('Đã chi {spent} / {budget} (+{over}).', {spent:compact(a.cats[cat.id]), budget:compact(b), over:compact(a.cats[cat.id]-b)}), go:'spending'}); }
   const pm = m===1? {y:y-1,m:12} : {y, m:m-1};
   const pa = monthAgg(pm.y)[pm.m-1]; const sur = pa.income - pa.exp;
-  if(pa.n && sur>0 && !S.fund.some(e=>e.ref==='surplus-'+ymKey(pm.y,pm.m))) out.push({lv:'info', t:`Thặng dư T${pm.m}: ${compact(sur)} chưa chuyển quỹ`, d:'Chuyển vào Quỹ khẩn cấp để chốt sổ tháng.', go:'spending', month:pm});
+  if(pa.n && sur>0 && !S.fund.some(e=>e.ref==='surplus-'+ymKey(pm.y,pm.m))) out.push({lv:'info', t:L('Thặng dư {month}: {v} chưa chuyển quỹ', {month:mYShort(pm.m,pm.y), v:compact(sur)}), d:L('Chuyển vào Quỹ khẩn cấp để chốt sổ tháng.'), go:'spending', month:pm});
   const act = activeDeposits();
   if(act.length){ const diff = fundBalance('savings') - sum(act,d=>d.amount);
-    if(Math.abs(diff) >= 100000) out.push({lv:'info', t:`Sổ tiết kiệm lệch số dư quỹ ${compact(Math.abs(diff))}`, d:`Tổng gốc đang gửi ${compact(sum(act,d=>d.amount))} so với số dư quỹ ${compact(fundBalance('savings'))}.`, go:'deposits'}); }
+    if(Math.abs(diff) >= 100000) out.push({lv:'info', t:L('Sổ tiết kiệm lệch số dư quỹ {v}', {v:compact(Math.abs(diff))}), d:L('Tổng gốc đang gửi {p} so với số dư quỹ {f}.', {p:compact(sum(act,d=>d.amount)), f:compact(fundBalance('savings'))}), go:'deposits'}); }
   return out;
 }
 
@@ -426,16 +437,19 @@ function insights(){
       const capExp = avgInc*(1-SAVE_TARGET), cut = avgExp-capExp;
       const top3 = topCats.slice(0,3), top3Sum = sum(top3,x=>x.v)||1;
       const needAnnual = SAVE_TARGET*avgInc*12 - (yt.income-yt.exp);
+      const tg = pctPlain(SAVE_TARGET,0);
       plan = [
-        `Mục tiêu: giữ lại ${pctPlain(SAVE_TARGET,0)} thu nhập. Với thu nhập bình quân ${b(vnd(avgInc)+' ₫')}/tháng, chi tiêu cần ở mức tối đa ${b(vnd(capExp)+' ₫')}/tháng (hiện ${vnd(avgExp)} ₫ → giảm ${b(vnd(cut)+' ₫')}/tháng, tức ${pctPlain(cut/avgExp,0)}).`,
-        `Chia mức giảm cho 3 khoản lớn nhất: ${top3.map(x=>{ const m=x.v/n, c=cut*x.v/top3Sum; return `${x.c.name} ${b('−'+vnd(c))} (từ ${compact(m)} xuống ${compact(m-c)}/tháng)`; }).join('; ')}.`,
-        left? (needAnnual/left < avgInc ? `Để cả năm ${y} đạt ${pctPlain(SAVE_TARGET,0)}: ${left} tháng còn lại mỗi tháng cần thặng dư ${b(vnd(needAnnual/left)+' ₫')}, tức chi tối đa ${b(vnd(avgInc-needAnnual/left)+' ₫')}/tháng nếu thu nhập giữ mức hiện tại.` : `Khó đạt ${pctPlain(SAVE_TARGET,0)} cho riêng năm ${y} (cần thặng dư ${vnd(needAnnual/left)} ₫/tháng, vượt thu nhập bình quân). Hãy áp dụng mức chi ${vnd(capExp)} ₫/tháng ngay từ tháng tới để đạt mục tiêu cho năm ${y+1}.`) : `Áp dụng mức chi tối đa ${vnd(capExp)} ₫/tháng cho năm ${y+1}.`,
-        `Hoặc tăng thu nhập thêm ${b(vnd(avgExp/(1-SAVE_TARGET)-avgInc)+' ₫')}/tháng (lên ${vnd(avgExp/(1-SAVE_TARGET))} ₫) nếu giữ nguyên mức chi.`,
-        `Cuối mỗi tháng, bấm “Chuyển vào Quỹ khẩn cấp” ở mục Chi tiêu để chốt phần thặng dư, tránh tiêu lẫn sang tháng sau.`,
+        L('Mục tiêu: giữ lại {tg} thu nhập. Với thu nhập bình quân {inc}/tháng, chi tiêu cần ở mức tối đa {cap}/tháng (hiện {exp} ₫ → giảm {cut}/tháng, tức {cutPct}).', {tg, inc:b(vnd(avgInc)+' ₫'), cap:b(vnd(capExp)+' ₫'), exp:vnd(avgExp), cut:b(vnd(cut)+' ₫'), cutPct:pctPlain(cut/avgExp,0)}),
+        L('Chia mức giảm cho 3 khoản lớn nhất: {list}.', {list: top3.map(x=>{ const m=x.v/n, c=cut*x.v/top3Sum; return L('{cat} {cut} (từ {from} xuống {to}/tháng)', {cat:x.c.name, cut:b('−'+vnd(c)), from:compact(m), to:compact(m-c)}); }).join(L('; '))}),
+        left? (needAnnual/left < avgInc ? L('Để cả năm {y} đạt {tg}: {left} tháng còn lại mỗi tháng cần thặng dư {need}, tức chi tối đa {cap}/tháng nếu thu nhập giữ mức hiện tại.', {y, tg, left, need:b(vnd(needAnnual/left)+' ₫'), cap:b(vnd(avgInc-needAnnual/left)+' ₫')})
+            : L('Khó đạt {tg} cho riêng năm {y} (cần thặng dư {need} ₫/tháng, vượt thu nhập bình quân). Hãy áp dụng mức chi {cap} ₫/tháng ngay từ tháng tới để đạt mục tiêu cho năm {y1}.', {tg, y, need:vnd(needAnnual/left), cap:vnd(capExp), y1:y+1}))
+          : L('Áp dụng mức chi tối đa {cap} ₫/tháng cho năm {y1}.', {cap:vnd(capExp), y1:y+1}),
+        L('Hoặc tăng thu nhập thêm {add}/tháng (lên {to} ₫) nếu giữ nguyên mức chi.', {add:b(vnd(avgExp/(1-SAVE_TARGET)-avgInc)+' ₫'), to:vnd(avgExp/(1-SAVE_TARGET))}),
+        L('Cuối mỗi tháng, bấm “Chuyển vào Quỹ khẩn cấp” ở mục Chi tiêu để chốt phần thặng dư, tránh tiêu lẫn sang tháng sau.'),
       ];
     }
-    items.push({key:'rate', tone, ic: tone==='good'?ICONS.trendUp:ICONS.trendDown, t:`Tỷ lệ tiết kiệm năm ${y}: ${pctPlain(rate)}`,
-      d:`Giữ lại ${compact(yt.income-yt.exp)} trên ${compact(yt.income)} thu nhập sau ${yt.months} tháng. ${tone==='good'?`Đạt mức tốt (từ ${pctPlain(SAVE_TARGET,0)} trở lên).`:`Mục tiêu thường dùng là ${pctPlain(SAVE_TARGET,0)}.`}`, plan});
+    items.push({key:'rate', tone, ic: tone==='good'?ICONS.trendUp:ICONS.trendDown, t:L('Tỷ lệ tiết kiệm năm {y}: {rate}', {y, rate:pctPlain(rate)}),
+      d:L('Giữ lại {kept} trên {inc} thu nhập sau {n} tháng.', {kept:compact(yt.income-yt.exp), inc:compact(yt.income), n:yt.months})+' '+(tone==='good'? L('Đạt mức tốt (từ {tg} trở lên).', {tg:pctPlain(SAVE_TARGET,0)}) : L('Mục tiêu thường dùng là {tg}.', {tg:pctPlain(SAVE_TARGET,0)})), plan});
   }
 
   // 2. Spending trend: last 3 months vs the months before
@@ -448,14 +462,14 @@ function insights(){
     if(tone!=='good'){
       const rises = CATS.map(c=>{ const a=sum(last3,m=>m.cats[c.id])/3, p=sum(before,m=>m.cats[c.id])/before.length; return {c,a,p,d:a-p}; }).filter(x=>x.d>0).sort((p,q)=>q.d-p.d);
       plan = [
-        `Mục tiêu: đưa chi tiêu về mức trung bình trước đó ${b(vnd(bAvg)+' ₫')}/tháng, tức giảm ${b(vnd(l-bAvg)+' ₫')}/tháng so với 3 tháng gần nhất (${vnd(l)} ₫).`,
-        rises.length? `Các khoản tăng nhiều nhất: ${rises.slice(0,3).map(x=>`${x.c.name} ${b('+'+vnd(x.d))}/tháng (${compact(x.p)} → ${compact(x.a)})`).join('; ')}.` : 'Mức tăng đến từ nhiều khoản nhỏ; kiểm tra lại mục Mua sắm và Ăn uống.',
-        rises.length? `Đặt ngân sách tháng cho ${rises.slice(0,2).map(x=>`${x.c.name} ở mức ${b(vnd(x.p))} ₫`).join(' và ')} trong mục Thiết lập để nhận cảnh báo khi vượt.` : 'Đặt ngân sách tháng trong mục Thiết lập để nhận cảnh báo khi vượt.',
-        `Nếu khoản tăng là chi phí một lần (đám cưới, khám bệnh, sửa nhà…), ghi rõ trong “Mô tả tháng” để tách khỏi chi tiêu thường xuyên.`,
+        L('Mục tiêu: đưa chi tiêu về mức trung bình trước đó {avg}/tháng, tức giảm {cut}/tháng so với 3 tháng gần nhất ({last} ₫).', {avg:b(vnd(bAvg)+' ₫'), cut:b(vnd(l-bAvg)+' ₫'), last:vnd(l)}),
+        rises.length? L('Các khoản tăng nhiều nhất: {list}.', {list: rises.slice(0,3).map(x=>L('{cat} {d}/tháng ({from} → {to})', {cat:x.c.name, d:b('+'+vnd(x.d)), from:compact(x.p), to:compact(x.a)})).join(L('; '))}) : L('Mức tăng đến từ nhiều khoản nhỏ; kiểm tra lại mục Mua sắm và Ăn uống.'),
+        rises.length? L('Đặt ngân sách tháng cho {list} trong mục Thiết lập để nhận cảnh báo khi vượt.', {list: rises.slice(0,2).map(x=>L('{cat} ở mức {v} ₫', {cat:x.c.name, v:b(vnd(x.p))})).join(L(' và '))}) : L('Đặt ngân sách tháng trong mục Thiết lập để nhận cảnh báo khi vượt.'),
+        L('Nếu khoản tăng là chi phí một lần (đám cưới, khám bệnh, sửa nhà…), ghi rõ trong “Mô tả tháng” để tách khỏi chi tiêu thường xuyên.'),
       ];
     }
-    items.push({key:'trend', tone, ic: ch>0?ICONS.trendUp:ICONS.trendDown, t:`Chi tiêu 3 tháng gần nhất ${ch>=0?'tăng':'giảm'} ${pctPlain(Math.abs(ch))}`,
-      d:`Trung bình ${compact(l)}/tháng (T${last3[0].i+1}–T${last3[2].i+1}) so với ${compact(bAvg)}/tháng các tháng trước đó.`, plan});
+    items.push({key:'trend', tone, ic: ch>0?ICONS.trendUp:ICONS.trendDown, t: ch>=0? L('Chi tiêu 3 tháng gần nhất tăng {p}', {p:pctPlain(Math.abs(ch))}) : L('Chi tiêu 3 tháng gần nhất giảm {p}', {p:pctPlain(Math.abs(ch))}),
+      d:L('Trung bình {avg}/tháng ({from}–{to}) so với {before}/tháng các tháng trước đó.', {avg:compact(l), from:mShort(last3[0].i+1), to:mShort(last3[2].i+1), before:compact(bAvg)}), plan});
   }
 
   // 3. Expense structure
@@ -463,11 +477,11 @@ function insights(){
     const share = topCats[0].v/yt.exp;
     const tone = share>.35? 'mid' : 'info';
     const plan = tone==='mid'? [
-      `Mục tiêu: không khoản nào vượt 30% tổng chi. ${topCats[0].c.name} cần giảm ${b(vnd((topCats[0].v-.3*yt.exp)/n)+' ₫')}/tháng (từ ${compact(topCats[0].v/n)} xuống ${compact(.3*yt.exp/n)}/tháng).`,
-      `Theo dõi khoản này hằng tuần bằng nút “Ghi chép” để thấy sớm khi vượt mức.`,
+      L('Mục tiêu: không khoản nào vượt 30% tổng chi. {cat} cần giảm {cut}/tháng (từ {from} xuống {to}/tháng).', {cat:topCats[0].c.name, cut:b(vnd((topCats[0].v-.3*yt.exp)/n)+' ₫'), from:compact(topCats[0].v/n), to:compact(.3*yt.exp/n)}),
+      L('Theo dõi khoản này hằng tuần bằng nút “Ghi chép” để thấy sớm khi vượt mức.'),
     ] : null;
-    items.push({key:'struct', tone, ic:ICONS.info, t:`Khoản chi lớn nhất: ${topCats[0].c.name} (${pctPlain(share)})`,
-      d:`Tiếp theo là ${topCats[1].c.name} (${pctPlain(topCats[1].v/yt.exp)}) và ${topCats[2].c.name} (${pctPlain(topCats[2].v/yt.exp)}). Ba nhóm này chiếm ${pctPlain((topCats[0].v+topCats[1].v+topCats[2].v)/yt.exp,0)} tổng chi.`, plan});
+    items.push({key:'struct', tone, ic:ICONS.info, t:L('Khoản chi lớn nhất: {cat} ({p})', {cat:topCats[0].c.name, p:pctPlain(share)}),
+      d:L('Tiếp theo là {c2} ({p2}) và {c3} ({p3}). Ba nhóm này chiếm {p} tổng chi.', {c2:topCats[1].c.name, p2:pctPlain(topCats[1].v/yt.exp), c3:topCats[2].c.name, p3:pctPlain(topCats[2].v/yt.exp), p:pctPlain((topCats[0].v+topCats[1].v+topCats[2].v)/yt.exp,0)}), plan});
   }
 
   // 4. Emergency fund
@@ -478,14 +492,15 @@ function insights(){
       const toMin = Math.max(0, em.minAmt-em.bal), toTarget = Math.max(0, em.targetAmt-em.bal);
       const monthsSoFar = Math.max(1, monthsElapsed(y)), inflow = em.yearNet/monthsSoFar;
       plan = [
-        toMin>0? `Mốc an toàn ${EMERGENCY_MIN} tháng là ${b(vnd(em.minAmt)+' ₫')}: còn thiếu ${b(vnd(toMin)+' ₫')}. Nạp thêm ${b(vnd(toMin/3))} ₫/tháng để đạt trong 3 tháng, hoặc ${b(vnd(toMin/6))} ₫/tháng trong 6 tháng.` : `Đã qua mốc an toàn ${EMERGENCY_MIN} tháng (${vnd(em.minAmt)} ₫).`,
-        `Mục tiêu ${em.target} tháng là ${b(vnd(em.targetAmt)+' ₫')}: còn thiếu ${b(vnd(toTarget)+' ₫')}, tương đương nạp ${b(vnd(toTarget/12))} ₫/tháng trong 12 tháng.`,
-        `Năm ${y}, quỹ đang tăng ròng bình quân ${b(signed(inflow)+' ₫')}/tháng${inflow>0? ` → với tốc độ này cần khoảng ${b(Math.ceil(toTarget/inflow)+' tháng')} để đạt mục tiêu.` : '. Các khoản chi từ quỹ đang lớn hơn khoản nạp vào.'}`,
-        `Nguồn nạp gợi ý: thặng dư sinh hoạt hằng tháng (bình quân ${vnd(avgSur)} ₫) và các khoản thưởng, thu nhập phụ. Hạn chế dùng quỹ cho chi tiêu không khẩn cấp.`,
+        toMin>0? L('Mốc an toàn {min} tháng là {amt}: còn thiếu {gap}. Nạp thêm {m3} ₫/tháng để đạt trong 3 tháng, hoặc {m6} ₫/tháng trong 6 tháng.', {min:EMERGENCY_MIN, amt:b(vnd(em.minAmt)+' ₫'), gap:b(vnd(toMin)+' ₫'), m3:b(vnd(toMin/3)), m6:b(vnd(toMin/6))}) : L('Đã qua mốc an toàn {min} tháng ({amt} ₫).', {min:EMERGENCY_MIN, amt:vnd(em.minAmt)}),
+        L('Mục tiêu {target} tháng là {amt}: còn thiếu {gap}, tương đương nạp {m12} ₫/tháng trong 12 tháng.', {target:em.target, amt:b(vnd(em.targetAmt)+' ₫'), gap:b(vnd(toTarget)+' ₫'), m12:b(vnd(toTarget/12))}),
+        inflow>0? L('Năm {y}, quỹ đang tăng ròng bình quân {v}/tháng → với tốc độ này cần khoảng {n} tháng để đạt mục tiêu.', {y, v:b(signed(inflow)+' ₫'), n:b(Math.ceil(toTarget/inflow))})
+          : L('Năm {y}, quỹ đang tăng ròng bình quân {v}/tháng. Các khoản chi từ quỹ đang lớn hơn khoản nạp vào.', {y, v:b(signed(inflow)+' ₫')}),
+        L('Nguồn nạp gợi ý: thặng dư sinh hoạt hằng tháng (bình quân {v} ₫) và các khoản thưởng, thu nhập phụ. Hạn chế dùng quỹ cho chi tiêu không khẩn cấp.', {v:vnd(avgSur)}),
       ];
     }
-    items.push({key:'emergency', tone, ic: tone==='good'?ICONS.check:ICONS.alert, t:`Quỹ khẩn cấp đủ ${fmt1(em.months)} tháng chi tiêu`,
-      d: tone==='good' ? `Đạt mục tiêu ${em.target} tháng (${compact(em.targetAmt)}).` : tone==='mid' ? `Đã qua mốc an toàn ${EMERGENCY_MIN} tháng; còn thiếu ${compact(-em.gap)} để đạt ${em.target} tháng.` : `Chưa tới mốc an toàn tối thiểu ${EMERGENCY_MIN} tháng (${compact(em.minAmt)}); còn thiếu ${compact(em.minAmt-em.bal)}.`, plan});
+    items.push({key:'emergency', tone, ic: tone==='good'?ICONS.check:ICONS.alert, t:L('Quỹ khẩn cấp đủ {n} tháng chi tiêu', {n:fmt1(em.months)}),
+      d: tone==='good' ? L('Đạt mục tiêu {target} tháng ({amt}).', {target:em.target, amt:compact(em.targetAmt)}) : tone==='mid' ? L('Đã qua mốc an toàn {min} tháng; còn thiếu {gap} để đạt {target} tháng.', {min:EMERGENCY_MIN, gap:compact(-em.gap), target:em.target}) : L('Chưa tới mốc an toàn tối thiểu {min} tháng ({amt}); còn thiếu {gap}.', {min:EMERGENCY_MIN, amt:compact(em.minAmt), gap:compact(em.minAmt-em.bal)}), plan});
   }
 
   // 5. Net worth vs last year
@@ -493,42 +508,42 @@ function insights(){
   if(prev && N.total && y<=curYear()){
     const g=(N.total-prev)/prev; score += g>0?1:0;
     const plan = g<0? [
-      `Tài sản ròng giảm ${b(vnd(prev-N.total)+' ₫')} so với cuối ${y-1}.${N.parts? ` Thành phần: sổ tiết kiệm ${compact(N.parts.savings)}, quỹ cho con ${compact(N.parts.kids)}, quỹ khẩn cấp ${compact(N.parts.emergency)}, đầu tư ${compact(N.parts.risk)}.`:''}`,
-      `Để lấy lại mức cuối ${y-1} trước hết năm, cần tăng ${b(vnd((prev-N.total)/Math.max(1,left))+' ₫')}/tháng trong ${Math.max(1,left)} tháng còn lại.`,
-      `Kiểm tra các khoản rút lớn trong nhật ký Quỹ tiết kiệm và Quỹ khẩn cấp để xác định nguyên nhân.`,
+      L('Tài sản ròng giảm {v} so với cuối {py}.', {v:b(vnd(prev-N.total)+' ₫'), py:y-1})+(N.parts? ' '+L('Thành phần: sổ tiết kiệm {s}, quỹ cho con {k}, quỹ khẩn cấp {e}, đầu tư {r}.', {s:compact(N.parts.savings), k:compact(N.parts.kids), e:compact(N.parts.emergency), r:compact(N.parts.risk)}) : ''),
+      L('Để lấy lại mức cuối {py} trước hết năm, cần tăng {v}/tháng trong {n} tháng còn lại.', {py:y-1, v:b(vnd((prev-N.total)/Math.max(1,left))+' ₫'), n:Math.max(1,left)}),
+      L('Kiểm tra các khoản rút lớn trong nhật ký Quỹ tiết kiệm và Quỹ khẩn cấp để xác định nguyên nhân.'),
     ] : null;
-    items.push({key:'nav', tone: g>=0?'good':'low', ic: g>=0?ICONS.trendUp:ICONS.trendDown, t:`Tài sản ròng ${g>=0?'tăng':'giảm'} ${pctPlain(Math.abs(g))} so với cuối ${y-1}`, d:`Từ ${compact(prev)} lên ${compact(N.total)} (${signedC(N.total-prev)}).`, plan});
+    items.push({key:'nav', tone: g>=0?'good':'low', ic: g>=0?ICONS.trendUp:ICONS.trendDown, t: g>=0? L('Tài sản ròng tăng {p} so với cuối {py}', {p:pctPlain(Math.abs(g)), py:y-1}) : L('Tài sản ròng giảm {p} so với cuối {py}', {p:pctPlain(Math.abs(g)), py:y-1}), d:L('Từ {from} lên {to} ({d}).', {from:compact(prev), to:compact(N.total), d:signedC(N.total-prev)}), plan});
   }
 
   // 6. Allocation (descriptive only)
   if(N.total && N.parts){
-    items.push({key:'alloc', tone:'info', ic:ICONS.info, t:`Phân bổ: ${pctPlain(N.parts.savings/N.total)} tài sản nằm ở sổ tiết kiệm`, d:`Quỹ cho con ${pctPlain(N.parts.kids/N.total)}, quỹ khẩn cấp ${pctPlain(N.parts.emergency/N.total)}, đầu tư rủi ro cao ${pctPlain(N.parts.risk/N.total)}. Sổ tiết kiệm an toàn về vốn nhưng chỉ rút linh hoạt khi đến hạn.`});
+    items.push({key:'alloc', tone:'info', ic:ICONS.info, t:L('Phân bổ: {p} tài sản nằm ở sổ tiết kiệm', {p:pctPlain(N.parts.savings/N.total)}), d:L('Quỹ cho con {k}, quỹ khẩn cấp {e}, đầu tư rủi ro cao {r}. Sổ tiết kiệm an toàn về vốn nhưng chỉ rút linh hoạt khi đến hạn.', {k:pctPlain(N.parts.kids/N.total), e:pctPlain(N.parts.emergency/N.total), r:pctPlain(N.parts.risk/N.total)})});
   }
 
   // 7. Children's portfolio
   if(v.cost){
     const P = portfolio(); const losers = P.items.filter(i=>i.unreal<0 && i.cost>0);
     const plan = v.pl<0? [
-      ...losers.map(i=>`${productLabel(i.p)}: giá vốn bình quân ${b(fmtPrice(i.avg))}, giá hiện tại ${fmtPrice(i.price)} → cần tăng ${b(pctPlain((i.avg-i.price)/i.price))} để hòa vốn (lỗ tạm tính ${vnd(-i.unreal)} ₫).`),
-      `Đây là lỗ tạm tính, chưa phát sinh khi chưa bán. Cập nhật giá hằng tháng trong mục Quỹ cho con để theo dõi sát.`,
+      ...losers.map(i=>L('{prod}: giá vốn bình quân {avg}, giá hiện tại {price} → cần tăng {up} để hòa vốn (lỗ tạm tính {loss} ₫).', {prod:productLabel(i.p), avg:b(fmtPrice(i.avg)), price:fmtPrice(i.price), up:b(pctPlain((i.avg-i.price)/i.price)), loss:vnd(-i.unreal)})),
+      L('Đây là lỗ tạm tính, chưa phát sinh khi chưa bán. Cập nhật giá hằng tháng trong mục Quỹ cho con để theo dõi sát.'),
     ] : null;
-    items.push({key:'kids', tone: v.pl>=0?'good':'mid', ic: v.pl>=0?ICONS.trendUp:ICONS.trendDown, t:`Quỹ cho con ${v.pl>=0?'đang lãi':'đang lỗ'} ${pct(v.plPct,2)}`, d:`Giá trị ${compact(v.value)} trên vốn góp ${compact(v.cost)} · ${v.n} sản phẩm, ${v.tx} giao dịch.`, plan});
+    items.push({key:'kids', tone: v.pl>=0?'good':'mid', ic: v.pl>=0?ICONS.trendUp:ICONS.trendDown, t: v.pl>=0? L('Quỹ cho con đang lãi {p}', {p:pct(v.plPct,2)}) : L('Quỹ cho con đang lỗ {p}', {p:pct(v.plPct,2)}), d:L('Giá trị {v} trên vốn góp {c} · {n} sản phẩm, {tx} giao dịch.', {v:compact(v.value), c:compact(v.cost), n:v.n, tx:v.tx}), plan});
   }
 
   const order = {low:0, mid:1, info:2, good:3};
   items.sort((p,q)=>order[p.tone]-order[q.tone]);
   const maxScore = 6;
-  const verdict = score>=5 ? {tone:'good', t:'Vững vàng'} : score>=3 ? {tone:'mid', t:'Ổn định'} : {tone:'low', t:'Cần cải thiện'};
+  const verdict = score>=5 ? {tone:'good', t:L('Vững vàng')} : score>=3 ? {tone:'mid', t:L('Ổn định')} : {tone:'low', t:L('Cần cải thiện')};
   return {score, maxScore, verdict, items, flagged: items.filter(i=>i.tone==='low'||i.tone==='mid').length};
 }
 function insightRow(it){
   const flag = it.tone==='low' || it.tone==='mid';
   const open = S.openInsights.has(it.key);
   const title = flag && it.plan
-    ? `<button type="button" class="ins-t" data-insight="${it.key}" aria-expanded="${open}"><span>${esc(it.t)}</span><span class="chip neg">${it.tone==='low'?'Cần cải thiện':'Cần lưu ý'}</span>${ico('<path d="M6 9l6 6 6-6"/>','ico chev')}</button>`
+    ? `<button type="button" class="ins-t" data-insight="${it.key}" aria-expanded="${open}"><span>${esc(it.t)}</span><span class="chip neg">${it.tone==='low'?L('Cần cải thiện'):L('Cần lưu ý')}</span>${ico('<path d="M6 9l6 6 6-6"/>','ico chev')}</button>`
     : `<div class="t">${esc(it.t)}</div>`;
   return `<div class="insight ${it.tone} ${flag?'flag':''}"><span class="ic">${ico(flag? ICONS.warn : it.ic)}</span><div style="min-width:0">${title}<div class="d">${esc(it.d)}</div>
-    ${flag && it.plan && open? `<div class="plan"><b>Cách cải thiện</b><ol>${it.plan.map(p=>`<li>${p}</li>`).join('')}</ol></div>` : ''}</div></div>`;
+    ${flag && it.plan && open? `<div class="plan"><b>${L('Cách cải thiện')}</b><ol>${it.plan.map(p=>`<li>${p}</li>`).join('')}</ol></div>` : ''}</div></div>`;
 }
 
 /* =========================================================
@@ -552,16 +567,16 @@ function chartCashflow(agg, year){
     const x0 = pl+i*bw, w=Math.max(4,bw*.3), hI = ih*m.income/max, hE = ih*m.exp/max;
     if(m.income) g += `<rect x="${x0+bw*.17}" y="${pt+ih-hI}" width="${w}" height="${hI}" rx="3" fill="var(--accent)"/>`;
     if(m.exp) g += `<rect x="${x0+bw*.17+w+2}" y="${pt+ih-hE}" width="${w}" height="${hE}" rx="3" fill="var(--exp)"/>`;
-    g += `<text x="${x0+bw/2}" y="${H-8}" text-anchor="middle" ${i===curM?'style="fill:var(--ink);font-weight:700"':''}>T${i+1}</text>`;
+    g += `<text x="${x0+bw/2}" y="${H-8}" text-anchor="middle" ${i===curM?'style="fill:var(--ink);font-weight:700"':''}>${mShort(i+1)}</text>`;
   });
   CH.cash = {W, x0:pl+bw/2, step:bw, n:12, tip:i=>{ const m=agg[i]; if(!m.n) return ''; const s=m.income-m.exp;
-    return `<b>Tháng ${i+1}/${year}</b>`+tipRows([{n:'Thu nhập',c:'var(--accent)',v:vnd(m.income)},{n:'Chi tiêu',c:'var(--exp)',v:vnd(m.exp)},{n:'Thặng dư',v:`<span class="${s<0?'neg':''}">${signed(s)}</span>`},{n:'Tỷ lệ tiết kiệm',v:m.income?pctPlain(s/m.income):'—'}]); }};
-  return `<div class="chart" data-chart="cash"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Thu nhập và chi tiêu theo tháng năm ${year}">${g}</svg></div>
-  <div class="legend"><span><i class="swatch" style="background:var(--accent)"></i>Thu nhập</span><span><i class="swatch" style="background:var(--exp)"></i>Chi tiêu</span><span class="muted">Chạm vào biểu đồ để xem số liệu</span></div>`;
+    return `<b>${monthLabel(year,i+1)}</b>`+tipRows([{n:L('Thu nhập'),c:'var(--accent)',v:vnd(m.income)},{n:L('Chi tiêu'),c:'var(--exp)',v:vnd(m.exp)},{n:L('Thặng dư'),v:`<span class="${s<0?'neg':''}">${signed(s)}</span>`},{n:L('Tỷ lệ tiết kiệm'),v:m.income?pctPlain(s/m.income):'—'}]); }};
+  return `<div class="chart" data-chart="cash"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${L('Thu nhập và chi tiêu theo tháng năm {y}', {y:year})}">${g}</svg></div>
+  <div class="legend"><span><i class="swatch" style="background:var(--accent)"></i>${L('Thu nhập')}</span><span><i class="swatch" style="background:var(--exp)"></i>${L('Chi tiêu')}</span><span class="muted">${L('Chạm vào biểu đồ để xem số liệu')}</span></div>`;
 }
 function chartLines(agg, year, selM){
   const W=1040,H=320,pl=58,pr=18,pt=14,pb=28,ih=H-pt-pb,iw=W-pl-pr,step=iw/11;
-  const series = [...CATS.map(c=>({id:c.id, name:c.name, color:`var(--c-${c.id})`, val:i=>agg[i].cats[c.id]})), {id:'_total', name:'Tổng chi', color:'var(--ink)', val:i=>agg[i].exp, dash:true}];
+  const series = [...CATS.map(c=>({id:c.id, name:c.name, color:`var(--c-${c.id})`, val:i=>agg[i].cats[c.id]})), {id:'_total', name:L('Tổng chi'), color:'var(--ink)', val:i=>agg[i].exp, dash:true}];
   const vis = series.filter(s=>!S.lineHidden.has(s.id));
   const max = niceMax(Math.max(1,...vis.flatMap(s=>agg.map((m,i)=>m.n? s.val(i):0))));
   const X = i=>pl+i*step, Y = v=>pt+ih-ih*v/max;
@@ -574,12 +589,12 @@ function chartLines(agg, year, selM){
     g += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.dash?2.4:2}" ${s.dash?'stroke-dasharray="6 4"':''} stroke-linejoin="round" stroke-linecap="round"/>`;
     agg.forEach((m,i)=>{ if(m.n) g += `<circle cx="${X(i)}" cy="${Y(s.val(i))}" r="${i===selM-1?4:2.6}" fill="${s.color}" stroke="var(--surface)" stroke-width="1.5"/>`; });
   }
-  agg.forEach((m,i)=>{ g += `<text x="${X(i)}" y="${H-8}" text-anchor="middle" ${i===selM-1?'style="fill:var(--ink);font-weight:700"':''}>T${i+1}</text>`; });
+  agg.forEach((m,i)=>{ g += `<text x="${X(i)}" y="${H-8}" text-anchor="middle" ${i===selM-1?'style="fill:var(--ink);font-weight:700"':''}>${mShort(i+1)}</text>`; });
   CH.lines = {W, x0:pl, step, n:12, tip:i=>{ const m=agg[i]; if(!m.n) return '';
     const rows = vis.filter(s=>s.id!=='_total').map(s=>({n:s.name,c:s.color,v:vnd(s.val(i)),raw:s.val(i)})).sort((a,b)=>b.raw-a.raw);
-    return `<b>Tháng ${i+1}/${year}</b>`+tipRows(rows)+`<div class="r" style="border-top:1px solid rgba(255,255,255,.2);margin-top:4px;padding-top:4px"><span>Tổng chi</span><em>${vnd(m.exp)}</em></div>`; }};
-  return `<div class="chart" data-chart="lines"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Chi tiêu theo danh mục từng tháng năm ${year}">${g}</svg></div>
-  <div class="legend" role="group" aria-label="Ẩn hoặc hiện danh mục">${series.map(s=>`<button type="button" data-line="${s.id}" aria-pressed="${!S.lineHidden.has(s.id)}"><i class="swatch" style="background:${s.color}"></i>${s.name}</button>`).join('')}</div>`;
+    return `<b>${monthLabel(year,i+1)}</b>`+tipRows(rows)+`<div class="r" style="border-top:1px solid rgba(255,255,255,.2);margin-top:4px;padding-top:4px"><span>${L('Tổng chi')}</span><em>${vnd(m.exp)}</em></div>`; }};
+  return `<div class="chart" data-chart="lines"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${L('Chi tiêu theo danh mục từng tháng năm {y}', {y:year})}">${g}</svg></div>
+  <div class="legend" role="group" aria-label="${L('Ẩn hoặc hiện danh mục')}">${series.map(s=>`<button type="button" data-line="${s.id}" aria-pressed="${!S.lineHidden.has(s.id)}"><i class="swatch" style="background:${s.color}"></i>${s.name}</button>`).join('')}</div>`;
 }
 function chartArea(points, color, label, id){
   const W=600,H=220,pl=56,pt=12,pb=26,ih=H-pt-pb,iw=W-pl-14;
@@ -594,7 +609,7 @@ function chartArea(points, color, label, id){
   g += `<line class="guide" x1="0" x2="0" y1="${pt}" y2="${pt+ih}" stroke="var(--muted)" stroke-dasharray="3 3" style="opacity:0"/>`;
   points.forEach((p,i)=>{ g+=`<text x="${X(i)}" y="${H-7}" text-anchor="middle">${esc(p.label)}</text>`; });
   const li=points.length-1; g += `<circle cx="${X(li)}" cy="${Y(points[li].v)}" r="4" fill="${color}" stroke="var(--surface)" stroke-width="2"/>`;
-  CH[id] = {W, x0:pl, step, n:points.length, tip:i=>`<b>${esc(points[i].full||points[i].label)}</b>`+tipRows([{n:'Số dư',c:color,v:vnd(points[i].v)}])};
+  CH[id] = {W, x0:pl, step, n:points.length, tip:i=>`<b>${esc(points[i].full||points[i].label)}</b>`+tipRows([{n:L('Số dư'),c:color,v:vnd(points[i].v)}])};
   return `<div class="chart" data-chart="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">${g}</svg></div>`;
 }
 function chartLotPL(lots, price){
@@ -604,15 +619,15 @@ function chartLotPL(lots, price){
   const mx = Math.max(.05, ...rs.map(Math.abs)); const lim = Math.ceil(mx*20)/20;
   const bw = iw/n, Y = r => pt + ih/2 - (ih/2)*(r/lim);
   let g='';
-  for(const t of [lim, lim/2, 0, -lim/2, -lim]){ const y=Y(t); g += `<line x1="${pl}" x2="${W-8}" y1="${y}" y2="${y}" stroke="${t===0?'var(--line)':'var(--line-2)'}"/><text x="${pl-8}" y="${y+3.5}" text-anchor="end">${(t*100).toLocaleString('vi-VN',{maximumFractionDigits:1})}%</text>`; }
+  for(const t of [lim, lim/2, 0, -lim/2, -lim]){ const y=Y(t); g += `<line x1="${pl}" x2="${W-8}" y1="${y}" y2="${y}" stroke="${t===0?'var(--line)':'var(--line-2)'}"/><text x="${pl-8}" y="${y+3.5}" text-anchor="end">${I.num(t*100,1)}%</text>`; }
   g += `<line class="guide" x1="0" x2="0" y1="${pt}" y2="${pt+ih}" stroke="var(--muted)" stroke-dasharray="3 3" style="opacity:0"/>`;
   lots.forEach((l,i)=>{ const r=rs[i], x=pl+i*bw+bw*.2, w=Math.max(3,bw*.6), y0=Y(0), y1=Y(r);
     g += `<rect x="${x}" y="${Math.min(y0,y1)}" width="${w}" height="${Math.max(1,Math.abs(y1-y0))}" rx="2.5" fill="${r>=0?'var(--pos)':'var(--neg)'}"/>`;
     if(n<=24 && (i%Math.ceil(n/12)===0 || i===n-1)) g += `<text x="${pl+i*bw+bw/2}" y="${H-16}" text-anchor="middle">${l.date.slice(5,7)}/${l.date.slice(0,4)}</text>`; });
   CH.lots = {W, x0:pl+bw/2, step:bw, n, tip:i=>{ const l=lots[i], u=+l.units||0, p=+l.price||0, r=rs[i];
-    return `<b>Mua ngày ${fmtDate(l.date)}</b>`+tipRows([{n:'Giá mua',v:p.toLocaleString('vi-VN',{maximumFractionDigits:2})},{n:'Vốn',v:vnd(u*p)},{n:'Giá trị hiện tại',v:vnd(u*price)},{n:'Lãi/lỗ',v:`<span style="color:${r>=0?'var(--pos)':'var(--neg)'}">${pct(r,2)}</span>`}]); }};
-  return `<div class="chart" data-chart="lots"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Lãi lỗ phần trăm từng lần mua chứng chỉ quỹ">${g}</svg></div>
-  <div class="legend"><span><i class="swatch" style="background:var(--pos)"></i>Đang lãi</span><span><i class="swatch" style="background:var(--neg)"></i>Đang lỗ</span><span class="muted">Theo giá CCQ hiện tại · chạm để xem chi tiết</span></div>`;
+    return `<b>${L('Mua ngày {date}', {date:fmtDate(l.date)})}</b>`+tipRows([{n:L('Giá mua'),v:fmtPrice(p)},{n:L('Vốn'),v:vnd(u*p)},{n:L('Giá trị hiện tại'),v:vnd(u*price)},{n:L('Lãi/lỗ'),v:`<span style="color:${r>=0?'var(--pos)':'var(--neg)'}">${pct(r,2)}</span>`}]); }};
+  return `<div class="chart" data-chart="lots"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${L('Lãi lỗ phần trăm từng lần mua chứng chỉ quỹ')}">${g}</svg></div>
+  <div class="legend"><span><i class="swatch" style="background:var(--pos)"></i>${L('Đang lãi')}</span><span><i class="swatch" style="background:var(--neg)"></i>${L('Đang lỗ')}</span><span class="muted">${L('Theo giá hiện tại · chạm để xem chi tiết')}</span></div>`;
 }
 function donut(items, total, periodLabel){
   const cx=100, cy=100, R=92, r=60; let a0=-Math.PI/2; let paths='';
@@ -625,10 +640,10 @@ function donut(items, total, periodLabel){
     paths += `<path data-seg="${it.id}" d="M${x0.toFixed(2)},${y0.toFixed(2)} A${R},${R} 0 ${large} 1 ${x1.toFixed(2)},${y1.toFixed(2)} L${x2.toFixed(2)},${y2.toFixed(2)} A${r},${r} 0 ${large} 0 ${x3.toFixed(2)},${y3.toFixed(2)}Z" fill="var(--c-${it.id})" stroke="var(--surface)" stroke-width="2"><title>${esc(it.name)}: ${pctPlain(frac)}</title></path>`;
     a0 = a1;
   }
-  return `<div class="donut"><svg viewBox="0 0 200 200" role="img" aria-label="Cơ cấu chi phí ${esc(periodLabel)}">${paths}
-    <text class="c1" id="dn1" x="100" y="88" text-anchor="middle">Cơ cấu chi phí</text>
+  return `<div class="donut"><svg viewBox="0 0 200 200" role="img" aria-label="${L('Cơ cấu chi phí')} ${esc(periodLabel)}">${paths}
+    <text class="c1" id="dn1" x="100" y="88" text-anchor="middle">${L('Cơ cấu chi phí')}</text>
     <text class="c2" id="dn2" x="100" y="110" text-anchor="middle">${esc(periodLabel)}</text>
-    <text class="c3" id="dn3" x="100" y="127" text-anchor="middle">Chạm để xem số tiền</text></svg></div>`;
+    <text class="c3" id="dn3" x="100" y="127" text-anchor="middle">${L('Chạm để xem số tiền')}</text></svg></div>`;
 }
 let donutTimer=0;
 function revealDonut(id){
@@ -640,7 +655,7 @@ function revealDonut(id){
   $$('.donut path').forEach(p=>p.classList.toggle('dim', p.dataset.seg!==id));
   $$('.dlegend button').forEach(b=>b.classList.toggle('on', b.dataset.seg===id));
   clearTimeout(donutTimer);
-  donutTimer = setTimeout(()=>{ if(!$('#dn1')) return; $('#dn1').textContent='Cơ cấu chi phí'; $('#dn2').textContent=st.label; $('#dn3').textContent='Chạm để xem số tiền';
+  donutTimer = setTimeout(()=>{ if(!$('#dn1')) return; $('#dn1').textContent=L('Cơ cấu chi phí'); $('#dn2').textContent=st.label; $('#dn3').textContent=L('Chạm để xem số tiền');
     $$('.donut path').forEach(p=>p.classList.remove('dim')); $$('.dlegend button').forEach(b=>b.classList.remove('on')); }, 4000);
 }
 function chartPointer(e){
@@ -663,7 +678,7 @@ function chartLeave(e){ const box = e.target.closest && e.target.closest('.chart
    ========================================================= */
 function catIcon(id, kind){
   if(kind==='income') return `<span class="cat-ico" style="--c:var(--accent)">${ico('<path d="M12 19V5M6 11l6-6 6 6"/>')}</span>`;
-  const c = CAT[normCat(id)]; return `<span class="cat-ico" style="--c:var(--c-${c.id})">${c.ab}</span>`;
+  const c = CAT[normCat(id)]; return `<span class="cat-ico" style="--c:var(--c-${c.id})">${catAb(c)}</span>`;
 }
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 function whoTag(t){ return t.by ? `<img class="who" data-uid="${esc(t.by)}" alt="" src="${BLANK}">` : ''; }
@@ -673,45 +688,45 @@ function txRow(t){
     <div style="min-width:0"><div class="t">${esc(t.note || txLabel(t))}</div><div class="s">${whoTag(t)}${esc(txLabel(t))} · ${fmtDate(t.date)}</div></div>
     <div class="amt ${t.kind==='income'?'pos':''}">${sign}${vnd(t.amount)}</div></button>`;
 }
-const delBtn = (col,id) => S.canWrite? `<button class="btn xs danger" type="button" data-del="${col}/${esc(id)}">Xóa</button>` : '';
+const delBtn = (col,id) => S.canWrite? `<button class="btn xs danger" type="button" data-del="${col}/${esc(id)}">${L('Xóa')}</button>` : '';
 function kpi(label, value, foot='', cls=''){ return `<div class="card kpi ${cls}"><div class="label">${label}</div><div class="value">${value}</div>${foot?`<div class="foot">${foot}</div>`:''}</div>`; }
 function amountField(id, draftKey, label, placeholder){
   return `<div class="field"><label for="${id}">${label}</label><div class="amt-box sm"><input id="${id}" data-draft="${draftKey}" data-amount-prev="${id}-p" autocomplete="off" value="${esc(draft(draftKey,''))}" placeholder="${placeholder}"><span>₫</span></div><div class="amt-prev" id="${id}-p">${amountPreview(draft(draftKey,''))}</div></div>`;
 }
-function amountPreview(v){ if(!String(v||'').trim()) return 'Gõ tắt: 250k · 1tr2 · 2,5tr · 150k+80k'; const n=parseAmount(v); return isNaN(n)? '<span class="neg">Chưa đọc được số tiền</span>' : '= '+vnd(n)+' ₫'; }
+function amountPreview(v){ if(!String(v||'').trim()) return L('Gõ tắt: 250k · 1tr2 · 2,5tr · 150k+80k'); const n=parseAmount(v); return isNaN(n)? `<span class="neg">${L('Chưa đọc được số tiền')}</span>` : '= '+vnd(n)+' ₫'; }
 
 /** Inline entry form for a fund ledger (savings / emergency). */
 function fundForm(f){
   const types = FUND_TYPES[f]; const k = 'ff:'+f+':';
   const curType = draft(k+'type','in');
   return `<form class="inline-form" data-fund-form="${f}" novalidate>
-    <div class="typeseg" role="radiogroup" aria-label="Loại giao dịch">${Object.entries(types).map(([t,l])=>`<label><input type="radio" name="ff-${f}-type" value="${t}" data-draft="${k}type" ${curType===t?'checked':''}><span class="${t==='out'?'out':''}">${l}</span></label>`).join('')}</div>
+    <div class="typeseg" role="radiogroup" aria-label="${L('Loại giao dịch')}">${Object.entries(types).map(([t,l])=>`<label><input type="radio" name="ff-${f}-type" value="${t}" data-draft="${k}type" ${curType===t?'checked':''}><span class="${t==='out'?'out':''}">${l}</span></label>`).join('')}</div>
     <div class="row2">
-      <div class="field"><label for="ff-${f}-date">Ngày</label>${dateInput(`ff-${f}-date`, draft(k+'date', fmtDate(defaultDateISO())), `data-draft="${k}date"`)}</div>
-      ${amountField(`ff-${f}-amt`, k+'amt', 'Số tiền', 'vd: 20tr')}
+      <div class="field"><label for="ff-${f}-date">${L('Ngày')}</label>${dateInput(`ff-${f}-date`, draft(k+'date', fmtDate(defaultDateISO())), `data-draft="${k}date"`)}</div>
+      ${amountField(`ff-${f}-amt`, k+'amt', L('Số tiền'), L('vd: 20tr'))}
     </div>
-    <div class="field"><label for="ff-${f}-note">Nguồn / ghi chú</label><input class="input" id="ff-${f}-note" data-draft="${k}note" value="${esc(draft(k+'note',''))}" placeholder="${f==='savings'?'vd: Tất toán sổ VCB 6 tháng':'vd: Lương tháng 10, khám bệnh cho Dâu'}" maxlength="200"></div>
-    <div><button class="btn primary" type="submit">${ico(ICONS.plus)}Ghi nhận</button></div>
+    <div class="field"><label for="ff-${f}-note">${L('Nguồn / ghi chú')}</label><input class="input" id="ff-${f}-note" data-draft="${k}note" value="${esc(draft(k+'note',''))}" placeholder="${f==='savings'?L('vd: Tất toán sổ VCB 6 tháng'):L('vd: Lương tháng 10, khám bệnh cho Dâu')}" maxlength="200"></div>
+    <div><button class="btn primary" type="submit">${ico(ICONS.plus)}${L('Ghi nhận')}</button></div>
   </form>`;
 }
 function journalSub(f){
   const y = S.year; const startY = ledgerStartYear();
-  if(y<=startY) return `<span class="sub">Năm ${y} · số dư đầu kỳ ${fmtDate(cfg().openings.asOf)}: ${vnd(cfg().openings[f])} ₫</span>`;
-  return `<span class="sub">Năm ${y} · đầu năm <b class="num">${vnd(fundBalance(f,(y-1)+'-12-31'))}</b> → cuối năm <b class="num">${vnd(fundBalance(f,y+'-12-31'))}</b> ₫</span>`;
+  if(y<=startY) return `<span class="sub">${L('Năm {y} · số dư đầu kỳ {date}: {v} ₫', {y, date:fmtDate(cfg().openings.asOf), v:vnd(cfg().openings[f])})}</span>`;
+  return `<span class="sub">${L('Năm {y} · đầu năm {start} → cuối năm {end} ₫', {y, start:`<b class="num">${vnd(fundBalance(f,(y-1)+'-12-31'))}</b>`, end:`<b class="num">${vnd(fundBalance(f,y+'-12-31'))}</b>`})}</span>`;
 }
 function fundJournal(f){
   const list = S.fund.filter(e=>e.fund===f && (e.date||'').startsWith(String(S.year))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.at||0)-(a.at||0));
-  if(!list.length) return `<div class="empty"><b>Chưa có giao dịch năm ${S.year}</b>Dùng mục nhập liệu để ghi nhận khoản đầu tiên.</div>`;
+  if(!list.length) return `<div class="empty"><b>${L('Chưa có giao dịch năm {y}', {y:S.year})}</b>${L('Dùng mục nhập liệu để ghi nhận khoản đầu tiên.')}</div>`;
   return `<div class="tbl-wrap"><table>
-    <thead><tr><th>Ngày</th><th class="l">Loại</th><th>Số tiền (₫)</th><th class="l">Ghi chú / nguồn</th>${S.canWrite?'<th></th>':''}</tr></thead>
-    <tbody>${list.map(e=>{ const out=e.type==='out'; return `<tr><td class="num">${fmtDate(e.date)}</td><td class="txt"><span class="chip ${out?'neg':e.type==='interest'?'gold':'pos'}">${fundTypeLabel(f,e.type)}</span></td><td class="${out?'neg':'pos'}">${out?'−':'+'}${vnd(e.amount)}</td><td class="wrap">${whoTag(e)}${esc(e.note||'')}</td>${S.canWrite?`<td><span class="act"><button class="btn xs" type="button" data-edit-fund="${esc(e.id)}">Sửa</button>${delBtn('fund',e.id)}</span></td>`:''}</tr>`; }).join('')}</tbody>
+    <thead><tr><th>${L('Ngày')}</th><th class="l">${L('Loại')}</th><th>${L('Số tiền (₫)')}</th><th class="l">${L('Ghi chú / nguồn')}</th>${S.canWrite?'<th></th>':''}</tr></thead>
+    <tbody>${list.map(e=>{ const out=e.type==='out'; return `<tr><td class="num">${fmtDate(e.date)}</td><td class="txt"><span class="chip ${out?'neg':e.type==='interest'?'gold':'pos'}">${fundTypeLabel(f,e.type)}</span></td><td class="${out?'neg':'pos'}">${out?'−':'+'}${vnd(e.amount)}</td><td class="wrap">${whoTag(e)}${esc(e.note||'')}</td>${S.canWrite?`<td><span class="act"><button class="btn xs" type="button" data-edit-fund="${esc(e.id)}">${L('Sửa')}</button>${delBtn('fund',e.id)}</span></td>`:''}</tr>`; }).join('')}</tbody>
   </table></div>`;
 }
 
 /* =========================================================
    Views — Tổng quan
    ========================================================= */
-const emptyYear = y => `<div class="empty"><b>Chưa có số liệu năm ${y}</b>${y>curYear()? `Số liệu sẽ hiện khi bắt đầu nhập cho năm ${y}.` : `Nhập số liệu tháng trong mục Chi tiêu để xem biểu đồ.`}</div>`;
+const emptyYear = y => `<div class="empty"><b>${L('Chưa có số liệu năm {y}', {y})}</b>${y>curYear()? L('Số liệu sẽ hiện khi bắt đầu nhập cho năm {y}.', {y}) : L('Nhập số liệu tháng trong mục Chi tiêu để xem biểu đồ.')}</div>`;
 function heroCard(){
   const y = S.year; const future = y>curYear(); const N = navAt(y); const P = navAt(y-1); const prevNav = future? 0 : (P.total||0);
   const growth = prevNav && N.total? (N.total-prevNav)/prevNav : NaN;
@@ -719,21 +734,21 @@ function heroCard(){
   for(let k=top-3;k<top;k++){ const t=navAt(k).total; if(t) hv.push({y:k, v:t}); } if(N.total) hv.push({y:top, v:N.total, now:true});
   const hmax = Math.max(1,...hv.map(h=>h.v)); const yt = yearTotals(y);
   const keys = ['savings','kids','risk','emergency'];
-  const label = N.kind==='live' ? `Tổng tài sản ròng (NAV)${future?' hiện tại':''} · <span class="num" data-clock>${fmtDateTime(new Date())}</span>`
-    : N.kind==='snapshot' ? `Tài sản ròng chốt cuối năm ${y} · 31/12/${y}`
-    : N.kind==='estimate' ? `Tài sản ròng cuối năm ${y} · ước tính từ sổ quỹ` : `Chưa có số liệu tài sản ròng năm ${y}`;
-  return `<section class="hero" aria-label="Tổng tài sản ròng">
+  const label = N.kind==='live' ? `${future? L('Tổng tài sản ròng (NAV) hiện tại') : L('Tổng tài sản ròng (NAV)')} · <span class="num" data-clock>${fmtDateTime(new Date())}</span>`
+    : N.kind==='snapshot' ? L('Tài sản ròng chốt cuối năm {y} · 31/12/{y}', {y})
+    : N.kind==='estimate' ? L('Tài sản ròng cuối năm {y} · ước tính từ sổ quỹ', {y}) : L('Chưa có số liệu tài sản ròng năm {y}', {y});
+  return `<section class="hero" aria-label="${L('Tổng tài sản ròng')}">
     <div class="hero-row">
       <div style="min-width:0">
         <div class="eyebrow">${label}</div>
         <div class="hero-nav">${N.total? vnd(N.total) : '—'}<small>₫</small></div>
-        <div class="hero-meta">${prevNav && N.total? `<span>So với cuối ${y-1}: <b class="up">${pct(growth)}</b> (${signedC(N.total-prevNav)})</span>`:''}<span>Thu ${y}: <b>${compact(yt.income)}</b></span><span>Chi ${y}: <b>${compact(yt.exp)}</b></span></div>
+        <div class="hero-meta">${prevNav && N.total? `<span>${L('So với cuối {py}:', {py:y-1})} <b class="up">${pct(growth)}</b> (${signedC(N.total-prevNav)})</span>`:''}<span>${L('Thu {y}:', {y})} <b>${compact(yt.income)}</b></span><span>${L('Chi {y}:', {y})} <b>${compact(yt.exp)}</b></span></div>
       </div>
       <div class="hero-years" aria-hidden="true">${hv.map(h=>`<div class="hy ${h.now?'now':''}"><span class="v">${compact(h.v)}</span><span class="bar" style="height:${Math.max(4,60*h.v/hmax)}px"></span><span>${h.y}</span></div>`).join('')}</div>
     </div>
     ${N.parts? `<div class="alloc">${keys.map(k=>N.parts[k]>0?`<span style="width:${N.parts[k]/N.total*100}%;background:var(--f-${k})" title="${FUNDS[k].name}"></span>`:'').join('')}</div>
     <div class="alloc-legend">${keys.map(k=>`<div><div class="t"><i class="swatch" style="background:var(--f-${k})"></i>${FUNDS[k].short}</div><div class="a">${compact(N.parts[k])}</div><div class="p">${N.total?pctPlain(N.parts[k]/N.total):'—'}</div></div>`).join('')}</div>`
-    : `<p class="hero-meta" style="margin-top:16px">Năm này chỉ có số tổng tài sản ròng, chưa có chi tiết từng quỹ.</p>`}
+    : `<p class="hero-meta" style="margin-top:16px">${L('Năm này chỉ có số tổng tài sản ròng, chưa có chi tiết từng quỹ.')}</p>`}
   </section>`;
 }
 function viewOverview(){
@@ -747,42 +762,42 @@ function viewOverview(){
   const per = S.donutPeriod;
   const base = per==='month'? cur.cats : yt.cats; const total = per==='month'? cur.exp : yt.exp;
   const items = CATS.map(c=>({id:c.id, name:c.name, v:base[c.id]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
-  const plabel = per==='month'? `T${m}/${y}` : `Năm ${y}`;
+  const plabel = per==='month'? mYShort(m,y) : L('Năm {y}', {y});
   S._donut = {items, total, label:plabel};
   const ins = insights(); const al = alerts();
   const recent = [...S.tx].sort((a,b)=> (b.date||'').localeCompare(a.date||'') || (b.at||0)-(a.at||0)).slice(0,5);
   return `${heroCard()}
   <div class="grid g-4 section-gap">
-    ${kpi(`<i class="swatch" style="background:var(--accent)"></i>Thu nhập T${m}`, `${compact(cur.income)}`, cur.n? `<b>${vnd(cur.income)}</b> ₫` : 'Chưa ghi tháng này')}
-    ${kpi(`<i class="swatch" style="background:var(--exp)"></i>Chi tiêu T${m}`, `${compact(cur.exp)}`, cur.income? `${pctPlain(cur.exp/cur.income,0)} thu nhập · <b>${vnd(cur.exp)}</b> ₫` : '—')}
-    <div class="card kpi accent"><div class="label">Tỷ lệ tiết kiệm T${m}</div><div class="value ${rate<0?'neg':rate>=.2?'pos':''}">${pctPlain(rate)}</div>
-      <div class="foot">Thặng dư <b class="${sur<0?'neg':'pos'}">${signed(sur)}</b> ₫</div>
-      <div class="foot">Cả năm ${y}: <b>${pctPlain(yrate)}</b> · thặng dư <b class="${ysur<0?'neg':'pos'}">${signedC(ysur)}</b></div>${py? `<div class="foot">Năm ${y-1}: <b>${pctPlain(py.income?(py.income-py.exp)/py.income:NaN)}</b> · thặng dư ${signedC(py.income-py.exp)}</div>`:''}</div>
-    <div class="card kpi"><div class="label">Quỹ khẩn cấp đủ dùng</div><div class="value">${fmt1(em.months)}<small>tháng</small></div>
+    ${kpi(`<i class="swatch" style="background:var(--accent)"></i>${L('Thu nhập {m}', {m:mShort(m)})}`, `${compact(cur.income)}`, cur.n? `<b>${vnd(cur.income)}</b> ₫` : L('Chưa ghi tháng này'))}
+    ${kpi(`<i class="swatch" style="background:var(--exp)"></i>${L('Chi tiêu {m}', {m:mShort(m)})}`, `${compact(cur.exp)}`, cur.income? L('{p} thu nhập · {v} ₫', {p:pctPlain(cur.exp/cur.income,0), v:`<b>${vnd(cur.exp)}</b>`}) : '—')}
+    <div class="card kpi accent"><div class="label">${L('Tỷ lệ tiết kiệm {m}', {m:mShort(m)})}</div><div class="value ${rate<0?'neg':rate>=.2?'pos':''}">${pctPlain(rate)}</div>
+      <div class="foot">${L('Thặng dư')} <b class="${sur<0?'neg':'pos'}">${signed(sur)}</b> ₫</div>
+      <div class="foot">${L('Cả năm {y}:', {y})} <b>${pctPlain(yrate)}</b> · ${L('thặng dư')} <b class="${ysur<0?'neg':'pos'}">${signedC(ysur)}</b></div>${py? `<div class="foot">${L('Năm {y}:', {y:y-1})} <b>${pctPlain(py.income?(py.income-py.exp)/py.income:NaN)}</b> · ${L('thặng dư')} ${signedC(py.income-py.exp)}</div>`:''}</div>
+    <div class="card kpi"><div class="label">${L('Quỹ khẩn cấp đủ dùng')}</div><div class="value">${fmt1(em.months)}<small>${L('tháng')}</small></div>
       <div class="meter ${emTone==='pos'?'pos':emTone==='gold'?'gold':'warn'}" style="margin-top:9px"><i style="width:${Math.min(100,em.months/em.target*100)}%"></i></div>
-      <div class="foot"><span class="chip ${emTone}">${em.months>=em.target?'Đạt mục tiêu':em.months>=EMERGENCY_MIN?'Đạt mức tối thiểu':'Dưới mức an toàn'}</span> mục tiêu ${em.target} tháng</div></div>
+      <div class="foot"><span class="chip ${emTone}">${em.months>=em.target?L('Đạt mục tiêu'):em.months>=EMERGENCY_MIN?L('Đạt mức tối thiểu'):L('Dưới mức an toàn')}</span> ${L('mục tiêu {n} tháng', {n:em.target})}</div></div>
   </div>
   <div class="grid g-main section-gap">
-    <div class="card"><div class="card-h"><h2>Dòng tiền ${y}</h2><span class="sub">Thặng dư lũy kế <b class="num ${ysur<0?'neg':'pos'}">${signed(ysur)} ₫</b></span></div>${yt.months? chartCashflow(agg,y) : emptyYear(y)}</div>
-    <div class="card"><div class="card-h"><h2>Cơ cấu chi phí</h2>
-        <div class="seg" role="group" aria-label="Kỳ"><button type="button" data-donut="month" aria-pressed="${per==='month'}">T${m}</button><button type="button" data-donut="year" aria-pressed="${per==='year'}">Năm ${y}</button></div></div>
+    <div class="card"><div class="card-h"><h2>${L('Dòng tiền {y}', {y})}</h2><span class="sub">${L('Thặng dư lũy kế')} <b class="num ${ysur<0?'neg':'pos'}">${signed(ysur)} ₫</b></span></div>${yt.months? chartCashflow(agg,y) : emptyYear(y)}</div>
+    <div class="card"><div class="card-h"><h2>${L('Cơ cấu chi phí')}</h2>
+        <div class="seg" role="group" aria-label="${L('Kỳ')}"><button type="button" data-donut="month" aria-pressed="${per==='month'}">${mShort(m)}</button><button type="button" data-donut="year" aria-pressed="${per==='year'}">${L('Năm {y}', {y})}</button></div></div>
       ${total? `<div class="donut-wrap">${donut(items,total,plabel)}
         <div class="dlegend">${items.map(it=>`<button type="button" data-seg="${it.id}"><i class="swatch" style="background:var(--c-${it.id})"></i><span class="n">${it.name}</span><b>${pctPlain(it.v/total)}</b></button>`).join('')}</div></div>`
-      : '<div class="empty"><b>Chưa có chi phí</b>Nhập số liệu trong mục Chi tiêu.</div>'}
+      : `<div class="empty"><b>${L('Chưa có chi phí')}</b>${L('Nhập số liệu trong mục Chi tiêu.')}</div>`}
     </div>
   </div>
   <div class="grid g-main section-gap">
-    <div class="card"><div class="card-h"><h2>Nhận định tài chính gia đình</h2><span class="sub">Tự động · cập nhật theo số liệu</span></div>
-      ${yt.months? '' : `<div class="verdict"><div class="badge" style="background:var(--muted)">—</div><div><b>Chưa có thu chi năm ${y}</b><span>Nhận định về tỷ lệ tiết kiệm và xu hướng chi tiêu sẽ có khi nhập số liệu tháng đầu tiên. Các mục dưới đây là tình hình hiện tại.</span></div></div>`}
-      <div class="verdict ${ins.verdict.tone}" ${yt.months?'':'hidden'}><div class="badge">${ins.score}/${ins.maxScore}</div><div><b>${ins.verdict.t}</b><span>${ins.flagged? `${ins.flagged} mục cần lưu ý · bấm vào tiêu đề màu đỏ để xem cách cải thiện` : 'Không có mục cần cải thiện'}. Chấm theo tỷ lệ tiết kiệm, quỹ khẩn cấp, xu hướng chi tiêu và tài sản ròng.</span></div></div>
+    <div class="card"><div class="card-h"><h2>${L('Nhận định tài chính gia đình')}</h2><span class="sub">${L('Tự động · cập nhật theo số liệu')}</span></div>
+      ${yt.months? '' : `<div class="verdict"><div class="badge" style="background:var(--muted)">—</div><div><b>${L('Chưa có thu chi năm {y}', {y})}</b><span>${L('Nhận định về tỷ lệ tiết kiệm và xu hướng chi tiêu sẽ có khi nhập số liệu tháng đầu tiên. Các mục dưới đây là tình hình hiện tại.')}</span></div></div>`}
+      <div class="verdict ${ins.verdict.tone}" ${yt.months?'':'hidden'}><div class="badge">${ins.score}/${ins.maxScore}</div><div><b>${ins.verdict.t}</b><span>${ins.flagged? L('{n} mục cần lưu ý · bấm vào tiêu đề màu đỏ để xem cách cải thiện.', {n:ins.flagged}) : L('Không có mục cần cải thiện.')} ${L('Chấm theo tỷ lệ tiết kiệm, quỹ khẩn cấp, xu hướng chi tiêu và tài sản ròng.')}</span></div></div>
       <div>${ins.items.map(insightRow).join('')}</div>
-      <p class="disclaimer">Nhận định được tính tự động từ số liệu đã ghi, chỉ để tham khảo, không phải tư vấn đầu tư.</p>
+      <p class="disclaimer">${L('Nhận định được tính tự động từ số liệu đã ghi, chỉ để tham khảo, không phải tư vấn đầu tư.')}</p>
     </div>
     <div class="stack">
-      <div class="card"><div class="card-h"><h2>Cần chú ý</h2><span class="sub">${al.length} mục</span></div>
-        <div class="list">${al.length? al.map(a=>`<div class="alert ${a.lv}"><span class="bar"></span><div style="min-width:0"><div class="t">${esc(a.t)}</div><div class="d">${esc(a.d)}</div></div><a class="btn sm ghost" href="#${a.go}" ${a.month?`data-goto-month="${a.month.y}-${a.month.m}"`:''}>Xem</a></div>`).join('') : '<div class="empty"><b>Mọi thứ ổn</b>Không có việc cần xử lý.</div>'}</div></div>
-      <div class="card"><div class="card-h"><h2>Ghi chép gần đây</h2><a class="btn sm ghost" href="#spending">Tất cả</a></div>
-        <div class="list">${recent.length? recent.map(txRow).join('') : '<div class="empty"><b>Chưa có ghi chép</b></div>'}</div></div>
+      <div class="card"><div class="card-h"><h2>${L('Cần chú ý')}</h2><span class="sub">${L('{n} mục', {n:al.length})}</span></div>
+        <div class="list">${al.length? al.map(a=>`<div class="alert ${a.lv}"><span class="bar"></span><div style="min-width:0"><div class="t">${esc(a.t)}</div><div class="d">${esc(a.d)}</div></div><a class="btn sm ghost" href="#${a.go}" ${a.month?`data-goto-month="${a.month.y}-${a.month.m}"`:''}>${L('Xem')}</a></div>`).join('') : `<div class="empty"><b>${L('Mọi thứ ổn')}</b>${L('Không có việc cần xử lý.')}</div>`}</div></div>
+      <div class="card"><div class="card-h"><h2>${L('Ghi chép gần đây')}</h2><a class="btn sm ghost" href="#spending">${L('Tất cả')}</a></div>
+        <div class="list">${recent.length? recent.map(txRow).join('') : `<div class="empty"><b>${L('Chưa có ghi chép')}</b></div>`}</div></div>
     </div>
   </div>`;
 }
@@ -818,68 +833,68 @@ function viewSpending(){
   const surSaved = cur.income-cur.exp;
   return `
   <div class="top-actions" style="margin-bottom:16px;justify-content:space-between">
-    <div class="month-nav"><button type="button" data-mstep="-1" aria-label="Tháng trước">${ico('<path d="M15 6l-6 6 6 6"/>')}</button><b>${monthLabel(y,m)}</b><button type="button" data-mstep="1" aria-label="Tháng sau">${ico(ICONS.arrow)}</button></div>
-    <span class="hint">Năm đang xem: <b>${y}</b> · đổi năm ở góc trên bên phải</span>
+    <div class="month-nav"><button type="button" data-mstep="-1" aria-label="${L('Tháng trước')}">${ico('<path d="M15 6l-6 6 6 6"/>')}</button><b>${monthLabel(y,m)}</b><button type="button" data-mstep="1" aria-label="${L('Tháng sau')}">${ico(ICONS.arrow)}</button></div>
+    <span class="hint">${L('Năm đang xem: {y} · đổi năm ở góc trên bên phải', {y:`<b>${y}</b>`})}</span>
   </div>
   <div class="grid g-4">
-    ${kpi('<i class="swatch" style="background:var(--accent)"></i>Thu nhập', `${vnd(cur.income)}<small>₫</small>`, yoyFoot(y,m,'income'))}
-    ${kpi('<i class="swatch" style="background:var(--exp)"></i>Tổng chi', `${vnd(cur.exp)}<small>₫</small>`, yoyFoot(y,m,'exp'))}
-    ${kpi('Thặng dư / lỗ', `<span class="${surSaved<0?'neg':surSaved>0?'pos':''}">${signed(surSaved)}</span><small>₫</small>`, moved? `<span class="chip pos">Đã chuyển ${compact(moved.amount)} vào quỹ khẩn cấp</span>` : surSaved>0 && S.canWrite ? `<button class="btn xs" type="button" data-move-surplus="${surSaved}">Chuyển vào Quỹ khẩn cấp</button>` : '')}
-    ${kpi('Tỷ lệ tiết kiệm', `<span class="${surSaved<0?'neg':''}">${pctPlain(cur.income? surSaved/cur.income : NaN)}</span>`, `Năm ${y}: <b>${pctPlain(yt.income?(yt.income-yt.exp)/yt.income:NaN)}</b>`, 'accent')}
+    ${kpi(`<i class="swatch" style="background:var(--accent)"></i>${L('Thu nhập')}`, `${vnd(cur.income)}<small>₫</small>`, yoyFoot(y,m,'income'))}
+    ${kpi(`<i class="swatch" style="background:var(--exp)"></i>${L('Tổng chi')}`, `${vnd(cur.exp)}<small>₫</small>`, yoyFoot(y,m,'exp'))}
+    ${kpi(L('Thặng dư / lỗ'), `<span class="${surSaved<0?'neg':surSaved>0?'pos':''}">${signed(surSaved)}</span><small>₫</small>`, moved? `<span class="chip pos">${L('Đã chuyển {v} vào quỹ khẩn cấp', {v:compact(moved.amount)})}</span>` : surSaved>0 && S.canWrite ? `<button class="btn xs" type="button" data-move-surplus="${surSaved}">${L('Chuyển vào Quỹ khẩn cấp')}</button>` : '')}
+    ${kpi(L('Tỷ lệ tiết kiệm'), `<span class="${surSaved<0?'neg':''}">${pctPlain(cur.income? surSaved/cur.income : NaN)}</span>`, `${L('Năm {y}:', {y})} <b>${pctPlain(yt.income?(yt.income-yt.exp)/yt.income:NaN)}</b>`, 'accent')}
   </div>
 
   <div class="grid g-split section-gap">
-    <div class="card"><div class="card-h"><h2>Số liệu ${monthLabel(y,m).toLowerCase()}</h2><span class="sub">Nhập tổng từng khoản như bảng Excel</span></div>
+    <div class="card"><div class="card-h"><h2>${L('Số liệu {month}', {month:monthIn(y,m)})}</h2><span class="sub">${L('Nhập tổng từng khoản như bảng Excel')}</span></div>
       <form class="mform" id="monthForm" novalidate>
-        <div class="mrow income ${dv.income.dirty?'dirty':''}" data-mrow="income"><label class="n" for="mf-income"><i class="swatch" style="background:var(--accent)"></i><span>Thu nhập tháng</span></label>
+        <div class="mrow income ${dv.income.dirty?'dirty':''}" data-mrow="income"><label class="n" for="mf-income"><i class="swatch" style="background:var(--accent)"></i><span>${L('Thu nhập tháng')}</span></label>
           <input class="input" id="mf-income" data-draft="m:${ymKey(y,m)}:income" data-mfield="income" inputmode="text" autocomplete="off" value="${esc(dv.income.raw)}" placeholder="0" ${ro}>
-          ${dv.income.mf.others.length? `<span class="hint">Gồm ${dv.income.mf.others.length} khoản ghi lẻ: ${vnd(dv.income.mf.othersSum)} ₫</span>`:''}</div>
-        <div class="mgroup">Chi phí</div>
+          ${dv.income.mf.others.length? `<span class="hint">${L('Gồm {n} khoản ghi lẻ: {v} ₫', {n:dv.income.mf.others.length, v:vnd(dv.income.mf.othersSum)})}</span>`:''}</div>
+        <div class="mgroup">${L('Chi phí')}</div>
         ${CATS.map(c=>{ const f=dv[c.id]; return `<div class="mrow ${f.dirty?'dirty':''}" data-mrow="${c.id}"><label class="n" for="mf-${c.id}"><i class="swatch" style="background:var(--c-${c.id})"></i><span>${c.name}</span></label>
           <input class="input" id="mf-${c.id}" data-draft="m:${ymKey(y,m)}:${c.id}" data-mfield="${c.id}" inputmode="text" autocomplete="off" value="${esc(f.raw)}" placeholder="0" ${ro}>
-          ${f.mf.others.length? `<span class="hint">Gồm ${f.mf.others.length} khoản ghi lẻ: ${vnd(f.mf.othersSum)} ₫</span>`:''}</div>`; }).join('')}
-        <div class="field" style="margin-top:14px"><label for="mf-note">Mô tả tháng</label>
-          <textarea class="input" id="mf-note" data-draft="m:${ymKey(y,m)}:note" placeholder="vd: 5tr đưa bà ngoại, 2tr đám cưới, 1tr mua quạt…" ${ro}>${esc(dv._note.raw)}</textarea></div>
+          ${f.mf.others.length? `<span class="hint">${L('Gồm {n} khoản ghi lẻ: {v} ₫', {n:f.mf.others.length, v:vnd(f.mf.othersSum)})}</span>`:''}</div>`; }).join('')}
+        <div class="field" style="margin-top:14px"><label for="mf-note">${L('Mô tả tháng')}</label>
+          <textarea class="input" id="mf-note" data-draft="m:${ymKey(y,m)}:note" placeholder="${L('vd: 5tr đưa bà ngoại, 2tr đám cưới, 1tr mua quạt…')}" ${ro}>${esc(dv._note.raw)}</textarea></div>
         <div class="mtotals" aria-live="polite">
-          <div><span>Thu nhập</span><b id="mt-inc">${vnd(liveInc)}</b></div>
-          <div><span>Tổng chi</span><b id="mt-exp">${vnd(liveExp)}</b></div>
-          <div><span>Thặng dư</span><b id="mt-sur" class="${liveSur<0?'neg':'pos'}">${signed(liveSur)}</b></div>
-          <div><span>Tỷ lệ tiết kiệm</span><b id="mt-rate">${pctPlain(liveInc? liveSur/liveInc : NaN)}</b></div>
+          <div><span>${L('Thu nhập')}</span><b id="mt-inc">${vnd(liveInc)}</b></div>
+          <div><span>${L('Tổng chi')}</span><b id="mt-exp">${vnd(liveExp)}</b></div>
+          <div><span>${L('Thặng dư')}</span><b id="mt-sur" class="${liveSur<0?'neg':'pos'}">${signed(liveSur)}</b></div>
+          <div><span>${L('Tỷ lệ tiết kiệm')}</span><b id="mt-rate">${pctPlain(liveInc? liveSur/liveInc : NaN)}</b></div>
         </div>
-        ${S.canWrite? `<div class="mfoot"><span class="unsaved" id="mUnsaved" ${dv._dirty?'':'hidden'}>Có thay đổi chưa lưu</span><span></span>
-          <div class="top-actions"><button class="btn" type="button" id="mReset" ${dv._dirty?'':'disabled'}>Hoàn tác</button><button class="btn primary" type="submit" id="mSave" ${dv._dirty?'':'disabled'}>Lưu số liệu tháng</button></div></div>
-          <p class="hint" style="margin:8px 0 0">Gõ tắt được: 12tr, 2tr5, 250k, hoặc cộng nhiều khoản 250k+300k+1tr.</p>` : ''}
+        ${S.canWrite? `<div class="mfoot"><span class="unsaved" id="mUnsaved" ${dv._dirty?'':'hidden'}>${L('Có thay đổi chưa lưu')}</span><span></span>
+          <div class="top-actions"><button class="btn" type="button" id="mReset" ${dv._dirty?'':'disabled'}>${L('Hoàn tác')}</button><button class="btn primary" type="submit" id="mSave" ${dv._dirty?'':'disabled'}>${L('Lưu số liệu tháng')}</button></div></div>
+          <p class="hint" style="margin:8px 0 0">${L('Gõ tắt được: 12tr, 2tr5, 250k, hoặc cộng nhiều khoản 250k+300k+1tr.')}</p>` : ''}
       </form>
     </div>
     ${compareCard(y,m,cur)}
   </div>
 
-  <div class="card section-gap"><div class="card-h"><h2>Diễn biến chi tiêu theo danh mục · ${y}</h2><span class="sub">Chạm vào biểu đồ để xem số liệu từng tháng; bấm chú thích để ẩn/hiện</span></div>${yt.months? chartLines(agg,y,m) : emptyYear(y)}</div>
+  <div class="card section-gap"><div class="card-h"><h2>${L('Diễn biến chi tiêu theo danh mục · {y}', {y})}</h2><span class="sub">${L('Chạm vào biểu đồ để xem số liệu từng tháng; bấm chú thích để ẩn/hiện')}</span></div>${yt.months? chartLines(agg,y,m) : emptyYear(y)}</div>
 
-  <div class="card section-gap"><div class="card-h"><h2>Bảng tổng hợp ${y}</h2><span class="sub">Bấm vào tháng để mở số liệu tháng đó</span></div>
+  <div class="card section-gap"><div class="card-h"><h2>${L('Bảng tổng hợp {y}', {y})}</h2><span class="sub">${L('Bấm vào tháng để mở số liệu tháng đó')}</span></div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Khoản mục</th>${agg.map((a,i)=>`<th class="${i===m-1?'cur':''}">T${i+1}</th>`).join('')}<th>Cả năm</th></tr></thead>
+      <thead><tr><th>${L('Khoản mục')}</th>${agg.map((a,i)=>`<th class="${i===m-1?'cur':''}">${mShort(i+1)}</th>`).join('')}<th>${L('Cả năm')}</th></tr></thead>
       <tbody>
-        <tr class="click"><td><b>Thu nhập</b></td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.income?'':'zero'}" data-goto="${i+1}">${a.income?compact(a.income):'·'}</td>`).join('')}<td><b>${compact(yt.income)}</b></td></tr>
+        <tr class="click"><td><b>${L('Thu nhập')}</b></td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.income?'':'zero'}" data-goto="${i+1}">${a.income?compact(a.income):'·'}</td>`).join('')}<td><b>${compact(yt.income)}</b></td></tr>
         ${CATS.map(cc=>`<tr><td><i class="swatch" style="background:var(--c-${cc.id});margin-right:7px"></i>${cc.name}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.cats[cc.id]?'':'zero'}" data-goto="${i+1}">${a.cats[cc.id]?compact(a.cats[cc.id]):'·'}</td>`).join('')}<td>${compact(yt.cats[cc.id])}</td></tr>`).join('')}
-        <tr class="total"><td>Tổng chi</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''}" data-goto="${i+1}">${a.exp?compact(a.exp):'·'}</td>`).join('')}<td>${compact(yt.exp)}</td></tr>
-        <tr><td>Thặng dư / lỗ</td>${agg.map((a,i)=>{const d=a.income-a.exp; return `<td class="${i===m-1?'cur':''} ${!a.n?'zero':d<0?'neg':'pos'}" data-goto="${i+1}">${a.n?compact(d):'·'}</td>`;}).join('')}<td class="${yt.income-yt.exp<0?'neg':'pos'}">${compact(yt.income-yt.exp)}</td></tr>
+        <tr class="total"><td>${L('Tổng chi')}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''}" data-goto="${i+1}">${a.exp?compact(a.exp):'·'}</td>`).join('')}<td>${compact(yt.exp)}</td></tr>
+        <tr><td>${L('Thặng dư / lỗ')}</td>${agg.map((a,i)=>{const d=a.income-a.exp; return `<td class="${i===m-1?'cur':''} ${!a.n?'zero':d<0?'neg':'pos'}" data-goto="${i+1}">${a.n?compact(d):'·'}</td>`;}).join('')}<td class="${yt.income-yt.exp<0?'neg':'pos'}">${compact(yt.income-yt.exp)}</td></tr>
       </tbody></table></div>
   </div>
 
-  <div class="card section-gap"><div class="card-h"><h2>Ghi chú theo tháng · ${y}</h2><span class="sub">Tổng hợp từ ô “Mô tả tháng”</span></div>
+  <div class="card section-gap"><div class="card-h"><h2>${L('Ghi chú theo tháng · {y}', {y})}</h2><span class="sub">${L('Tổng hợp từ ô “Mô tả tháng”')}</span></div>
     ${noteMonths.length? `<div class="tbl-wrap"><table>
-      <thead><tr><th>Tháng</th><th>Thu nhập</th><th>Chi tiêu</th><th>Thặng dư</th><th>Tỷ lệ TK</th><th class="l">Ghi chú / lưu ý</th></tr></thead>
-      <tbody>${noteMonths.map(({a,i,note})=>{ const d=a.income-a.exp; return `<tr class="click ${note?'':'muted-row'}" data-goto-row="${i+1}"><td><b>T${i+1}</b></td><td>${compact(a.income)}</td><td>${compact(a.exp)}</td><td class="${d<0?'neg':'pos'}">${signedC(d)}</td><td>${a.income?pctPlain(d/a.income):'—'}</td><td class="wrap">${note? esc(note) : '<span class="muted">Chưa có ghi chú</span>'}</td></tr>`; }).join('')}</tbody>
-    </table></div>` : '<div class="empty"><b>Chưa có ghi chú</b>Nhập “Mô tả tháng” trong phần số liệu tháng.</div>'}
+      <thead><tr><th>${L('Tháng')}</th><th>${L('Thu nhập')}</th><th>${L('Chi tiêu')}</th><th>${L('Thặng dư')}</th><th>${L('Tỷ lệ TK')}</th><th class="l">${L('Ghi chú / lưu ý')}</th></tr></thead>
+      <tbody>${noteMonths.map(({a,i,note})=>{ const d=a.income-a.exp; return `<tr class="click ${note?'':'muted-row'}" data-goto-row="${i+1}"><td><b>${mShort(i+1)}</b></td><td>${compact(a.income)}</td><td>${compact(a.exp)}</td><td class="${d<0?'neg':'pos'}">${signedC(d)}</td><td>${a.income?pctPlain(d/a.income):'—'}</td><td class="wrap">${note? esc(note) : `<span class="muted">${L('Chưa có ghi chú')}</span>`}</td></tr>`; }).join('')}</tbody>
+    </table></div>` : `<div class="empty"><b>${L('Chưa có ghi chú')}</b>${L('Nhập “Mô tả tháng” trong phần số liệu tháng.')}</div>`}
   </div>
   ${historyCard(y)}`;
 }
 /** Difference vs average: positive → green "+amount (+x%)", negative → red "−amount (−x%)". */
-function cmpRow(name, color, curV, avgV, isTotal=false, baseLabel='TB'){
+function cmpRow(name, color, curV, avgV, isTotal=false, baseLabel=L('TB')){
   const d = Math.round(curV-avgV), r = avgV? d/avgV : NaN;
   const cls = d>0?'pos':d<0?'neg':'muted';
-  const txt = !avgV && !curV ? '—' : !avgV ? `${signed(d)} (mới phát sinh)` : `${signed(d)} (${pct(r,0)})`;
+  const txt = !avgV && !curV ? '—' : !avgV ? `${signed(d)} (${L('mới phát sinh')})` : `${signed(d)} (${pct(r,0)})`;
   return `<div class="cmp ${isTotal?'total':''}"><div class="n"><i class="swatch" style="background:${color}"></i><span>${name}</span></div><div class="v">${vnd(curV)}</div>
     <div class="s">${baseLabel} ${vnd(avgV)}</div><div class="d ${cls}">${txt}</div></div>`;
 }
@@ -887,38 +902,38 @@ function cmpRow(name, color, curV, avgV, isTotal=false, baseLabel='TB'){
 function compareBase(mode, y, m){
   const avgOf = s => { const cats={}; for(const c of CATS) cats[c.id]=s.cats[c.id]/s.months; return {income:s.income/s.months, exp:s.exp/s.months, cats}; };
   if(mode==='yoy'){
-    const a = monthAgg(y-1)[m-1]; if(a.n) return {label:`cùng kỳ tháng ${m}/${y-1}`, short:`T${m}/${y-1}`, income:a.income, exp:a.exp, cats:a.cats};
-    const s = yearSummary(y-1); return s? {label:`trung bình tháng năm ${y-1} (năm này chỉ có số tổng)`, short:`TB ${y-1}`, ...avgOf(s)} : null;
+    const a = monthAgg(y-1)[m-1]; if(a.n) return {label:L('cùng kỳ {month}', {month:monthIn(y-1,m)}), short:mYShort(m,y-1), income:a.income, exp:a.exp, cats:a.cats};
+    const s = yearSummary(y-1); return s? {label:L('trung bình tháng năm {y} (năm này chỉ có số tổng)', {y:y-1}), short:L('TB {y}', {y:y-1}), ...avgOf(s)} : null;
   }
-  if(mode==='lastyear'){ const s = yearSummary(y-1); return s? {label:`trung bình mỗi tháng năm ${y-1}`, short:`TB ${y-1}`, ...avgOf(s)} : null; }
-  const p = prevAverage(y,m); return p.n? {label:`trung bình ${p.n} tháng trước có số liệu`, short:'TB', ...p} : null;
+  if(mode==='lastyear'){ const s = yearSummary(y-1); return s? {label:L('trung bình mỗi tháng năm {y}', {y:y-1}), short:L('TB {y}', {y:y-1}), ...avgOf(s)} : null; }
+  const p = prevAverage(y,m); return p.n? {label:L('trung bình {n} tháng trước có số liệu', {n:p.n}), short:L('TB'), ...p} : null;
 }
 function compareCard(y, m, cur){
   const mode = S.cmpMode || 'prev'; const base = compareBase(mode, y, m);
-  const modes = [['prev','TB các tháng trước'],['yoy','Cùng kỳ năm trước'],['lastyear',`TB năm ${y-1}`]];
-  return `<div class="card"><div class="card-h"><h2>So sánh tháng ${m}/${y}</h2></div>
-    <div class="seg" role="group" aria-label="So sánh với" style="margin:-4px 0 10px">${modes.map(([k,l])=>`<button type="button" data-cmp="${k}" aria-pressed="${mode===k}">${l}</button>`).join('')}</div>
-    ${base? `<p class="hint" style="margin:0 0 6px">So với ${base.label}.</p><div class="list">
-      ${cmpRow('Tổng chi', 'var(--exp)', cur.exp, base.exp, true, base.short)}
+  const modes = [['prev',L('TB các tháng trước')],['yoy',L('Cùng kỳ năm trước')],['lastyear',L('TB năm {y}', {y:y-1})]];
+  return `<div class="card"><div class="card-h"><h2>${L('So sánh {month}', {month:monthIn(y,m)})}</h2></div>
+    <div class="seg" role="group" aria-label="${L('So sánh với')}" style="margin:-4px 0 10px">${modes.map(([k,l])=>`<button type="button" data-cmp="${k}" aria-pressed="${mode===k}">${l}</button>`).join('')}</div>
+    ${base? `<p class="hint" style="margin:0 0 6px">${L('So với {base}.', {base:base.label})}</p><div class="list">
+      ${cmpRow(L('Tổng chi'), 'var(--exp)', cur.exp, base.exp, true, base.short)}
       ${CATS.map(c=>cmpRow(c.name, `var(--c-${c.id})`, cur.cats[c.id], base.cats[c.id], false, base.short)).join('')}
-      ${cmpRow('Thu nhập', 'var(--accent)', cur.income, base.income, false, base.short)}
-    </div><p class="hint" style="margin:10px 0 0">Chênh lệch = tháng này − mốc so sánh. Xanh lá: cao hơn (+); đỏ: thấp hơn (−).</p>`
-    : `<div class="empty"><b>Chưa có số liệu để so sánh</b>${mode==='prev'? 'Cần ít nhất một tháng trước có số liệu.' : `Năm ${y-1} chưa có số liệu.`}</div>`}
+      ${cmpRow(L('Thu nhập'), 'var(--accent)', cur.income, base.income, false, base.short)}
+    </div><p class="hint" style="margin:10px 0 0">${L('Chênh lệch = tháng này − mốc so sánh. Xanh lá: cao hơn (+); đỏ: thấp hơn (−).')}</p>`
+    : `<div class="empty"><b>${L('Chưa có số liệu để so sánh')}</b>${mode==='prev'? L('Cần ít nhất một tháng trước có số liệu.') : L('Năm {y} chưa có số liệu.', {y:y-1})}</div>`}
   </div>`;
 }
 function yoyFoot(y, m, field){
-  const a = monthAgg(y-1)[m-1]; if(a.n){ const d=(field==='income'? monthAgg(y)[m-1].income : monthAgg(y)[m-1].exp) - a[field]; return `Cùng kỳ ${y-1} <b>${compact(a[field])}</b> · <span class="${d>=0?'pos':'neg'}">${signedC(d)}</span>`; }
-  const p = prevAverage(y,m); return p.n? `TB các tháng trước <b>${compact(p[field])}</b>` : '';
+  const a = monthAgg(y-1)[m-1]; if(a.n){ const d=(field==='income'? monthAgg(y)[m-1].income : monthAgg(y)[m-1].exp) - a[field]; return `${L('Cùng kỳ {y}', {y:y-1})} <b>${compact(a[field])}</b> · <span class="${d>=0?'pos':'neg'}">${signedC(d)}</span>`; }
+  const p = prevAverage(y,m); return p.n? `${L('TB các tháng trước')} <b>${compact(p[field])}</b>` : '';
 }
 /** All years side by side with a cumulative row — the long-term record. */
 function historyCard(sel){
   const rows = []; for(let k=firstYear(); k<=Math.max(curYear(), sel); k++){ const s=yearSummary(k); if(s) rows.push({y:k, ...s}); }
   if(!rows.length) return '';
   const T = {income:sum(rows,r=>r.income), exp:sum(rows,r=>r.exp), months:sum(rows,r=>r.months)};
-  return `<div class="card section-gap"><div class="card-h"><h2>Thu chi qua các năm (lũy kế)</h2><span class="sub">Bấm vào một năm để chuyển sang năm đó</span></div>
-    <div class="tbl-wrap"><table><thead><tr><th>Năm</th><th>Số tháng</th><th>Thu nhập (₫)</th><th>Chi tiêu (₫)</th><th>Thặng dư (₫)</th><th>Tỷ lệ TK</th><th>Chi TB/tháng</th></tr></thead>
-    <tbody>${rows.map(r=>{ const d=r.income-r.exp; return `<tr class="click ${r.y===sel?'sel':''}" data-set-year="${r.y}"><td><b>${r.y}</b>${r.source==='history'?' <span class="chip">số tổng năm</span>':''}${r.y===curYear()?' <span class="chip acc">đến nay</span>':''}</td><td>${r.months}</td><td>${vnd(r.income)}</td><td>${vnd(r.exp)}</td><td class="${d<0?'neg':'pos'}">${signed(d)}</td><td>${r.income?pctPlain(d/r.income):'—'}</td><td>${vnd(r.exp/r.months)}</td></tr>`; }).join('')}
-      <tr class="total"><td>Lũy kế</td><td>${T.months}</td><td>${vnd(T.income)}</td><td>${vnd(T.exp)}</td><td class="${T.income-T.exp<0?'neg':'pos'}">${signed(T.income-T.exp)}</td><td>${T.income?pctPlain((T.income-T.exp)/T.income):'—'}</td><td>${vnd(T.exp/(T.months||1))}</td></tr></tbody></table></div></div>`;
+  return `<div class="card section-gap"><div class="card-h"><h2>${L('Thu chi qua các năm (lũy kế)')}</h2><span class="sub">${L('Bấm vào một năm để chuyển sang năm đó')}</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>${L('Năm')}</th><th>${L('Số tháng')}</th><th>${L('Thu nhập (₫)')}</th><th>${L('Chi tiêu (₫)')}</th><th>${L('Thặng dư (₫)')}</th><th>${L('Tỷ lệ TK')}</th><th>${L('Chi TB/tháng')}</th></tr></thead>
+    <tbody>${rows.map(r=>{ const d=r.income-r.exp; return `<tr class="click ${r.y===sel?'sel':''}" data-set-year="${r.y}"><td><b>${r.y}</b>${r.source==='history'?` <span class="chip">${L('số tổng năm')}</span>`:''}${r.y===curYear()?` <span class="chip acc">${L('đến nay')}</span>`:''}</td><td>${r.months}</td><td>${vnd(r.income)}</td><td>${vnd(r.exp)}</td><td class="${d<0?'neg':'pos'}">${signed(d)}</td><td>${r.income?pctPlain(d/r.income):'—'}</td><td>${vnd(r.exp/r.months)}</td></tr>`; }).join('')}
+      <tr class="total"><td>${L('Lũy kế')}</td><td>${T.months}</td><td>${vnd(T.income)}</td><td>${vnd(T.exp)}</td><td class="${T.income-T.exp<0?'neg':'pos'}">${signed(T.income-T.exp)}</td><td>${T.income?pctPlain((T.income-T.exp)/T.income):'—'}</td><td>${vnd(T.exp/(T.months||1))}</td></tr></tbody></table></div></div>`;
 }
 function updateMonthLive(){
   const y=S.year, m=S.month; if(!$('#monthForm')) return;
@@ -934,9 +949,10 @@ async function saveMonth(){
   const ops=[];
   for(const f of MONTH_FIELDS){
     const d = dv[f]; if(!d.dirty) continue;
-    if(isNaN(d.v)){ toast(`${f==='income'?'Thu nhập':CAT[f].name}: chưa đọc được số tiền`); $('#mf-'+f)?.focus(); return; }
+    const fname = f==='income'? L('Thu nhập') : CAT[f].name;
+    if(isNaN(d.v)){ toast(L('{name}: chưa đọc được số tiền', {name:fname})); $('#mf-'+f)?.focus(); return; }
     const baseAmt = d.v - d.mf.othersSum;
-    if(baseAmt<0){ toast(`${f==='income'?'Thu nhập':CAT[f].name}: nhỏ hơn tổng các khoản ghi lẻ (${vnd(d.mf.othersSum)} ₫)`); $('#mf-'+f)?.focus(); return; }
+    if(baseAmt<0){ toast(L('{name}: nhỏ hơn tổng các khoản ghi lẻ ({v} ₫)', {name:fname, v:vnd(d.mf.othersSum)})); $('#mf-'+f)?.focus(); return; }
     const ref = db.collection('tx').doc(d.mf.baseId);
     if(baseAmt===0){ if(d.mf.base) ops.push(()=>ref.delete()); }
     else ops.push(()=>ref.set({date:lastDayISO(y,m), kind:f==='income'?'income':'expense', cat:f, amount:baseAmt, note:d.mf.base?.note||'',
@@ -947,60 +963,61 @@ async function saveMonth(){
   const btn=$('#mSave'); if(btn) btn.disabled=true;
   for(const op of ops){ if(!(await write(op))){ if(btn) btn.disabled=false; return; } }
   for(const k of Object.keys(S.drafts)) if(k.startsWith(`m:${key}:`)) delete S.drafts[k];
-  toast(`Đã lưu số liệu ${monthLabel(y,m).toLowerCase()}`);
+  toast(L('Đã lưu số liệu {month}', {month:monthIn(y,m)}));
   render();
 }
 
 /* =========================================================
    Views — Tiết kiệm & đầu tư
    ========================================================= */
-function investTabs(){ return `<nav class="subtabs" aria-label="Tiết kiệm & đầu tư">${INVEST_TABS.map(([id,l])=>`<a href="#${id}" ${S.view===id?'aria-current="page"':''}>${l}</a>`).join('')}</nav>`; }
+function investTabs(){ return `<nav class="subtabs" aria-label="${L('Tiết kiệm & đầu tư')}">${INVEST_TABS.map(([id,l])=>`<a href="#${id}" ${S.view===id?'aria-current="page"':''}>${l}</a>`).join('')}</nav>`; }
 function viewInvest(){
   const N = nav(); const em = emergencyStats(); const v = vcbfStats(); const act = activeDeposits();
   const principal = sum(act,d=>d.amount), accrued = sum(act,d=>depCalc(d).accrued);
-  const rows = [['savings','Sổ tiết kiệm','#deposits'],['kids','Quỹ cho con','#kids'],['emergency','Quỹ khẩn cấp','#emergency'],['risk','Đầu tư rủi ro cao','#settings']];
+  const rows = [['savings',L('Sổ tiết kiệm'),'#deposits'],['kids',L('Quỹ cho con'),'#kids'],['emergency',L('Quỹ khẩn cấp'),'#emergency'],['risk',L('Đầu tư rủi ro cao'),'#settings']];
+  const more = `<span class="card-link">${L('Xem & cập nhật')} ${ico(ICONS.arrow)}</span>`;
   return `${investTabs()}
   ${heroCard()}
-  <p class="hint" style="margin:14px 2px 0">Trang này chỉ để xem. Muốn thay đổi số liệu, bấm vào từng hạng mục bên dưới.</p>
+  <p class="hint" style="margin:14px 2px 0">${L('Trang này chỉ để xem. Muốn thay đổi số liệu, bấm vào từng hạng mục bên dưới.')}</p>
   <div class="grid g-4 section-gap">
-    <a class="card kpi" href="#deposits"><div class="label"><i class="swatch" style="background:var(--f-savings)"></i>Sổ tiết kiệm</div><div class="value">${compact(N.parts.savings)}</div>
-      <div class="foot">Gốc đang gửi <b>${compact(principal)}</b> · ${act.length} sổ</div><div class="foot">Lãi tạm tính <b class="pos" data-live="accrued">+${vnd(accrued)}</b> ₫</div><span class="card-link">Xem & cập nhật ${ico(ICONS.arrow)}</span></a>
-    <a class="card kpi" href="#emergency"><div class="label"><i class="swatch" style="background:var(--f-emergency)"></i>Quỹ khẩn cấp</div><div class="value">${compact(em.bal)}</div>
-      <div class="foot">Đủ <b>${fmt1(em.months)}</b> tháng chi tiêu · mục tiêu ${em.target}</div><div class="foot">Thu – chi ${S.year}: <b class="${em.yearNet<0?'neg':'pos'}">${signedC(em.yearNet)}</b></div><span class="card-link">Xem & cập nhật ${ico(ICONS.arrow)}</span></a>
-    <a class="card kpi" href="#kids"><div class="label"><i class="swatch" style="background:var(--f-kids)"></i>Quỹ cho con</div><div class="value">${compact(v.value)}</div>
-      <div class="foot">Vốn góp <b>${compact(v.cost)}</b></div><div class="foot">Lãi/lỗ <b class="${v.pl>=0?'pos':'neg'}">${pct(v.plPct,2)}</b> · ${signedC(v.pl)}</div><span class="card-link">Xem & cập nhật ${ico(ICONS.arrow)}</span></a>
-    <a class="card kpi" href="#settings"><div class="label"><i class="swatch" style="background:var(--f-risk)"></i>Đầu tư rủi ro cao</div><div class="value">${compact(N.parts.risk)}</div>
-      <div class="foot">${esc(cfg().highRiskNote)||'Chưa có danh mục'}</div><span class="card-link">Cập nhật trong Thiết lập ${ico(ICONS.arrow)}</span></a>
+    <a class="card kpi" href="#deposits"><div class="label"><i class="swatch" style="background:var(--f-savings)"></i>${L('Sổ tiết kiệm')}</div><div class="value">${compact(N.parts.savings)}</div>
+      <div class="foot">${L('Gốc đang gửi {v} · {n} sổ', {v:`<b>${compact(principal)}</b>`, n:act.length})}</div><div class="foot">${L('Lãi tạm tính')} <b class="pos" data-live="accrued">+${vnd(accrued)}</b> ₫</div>${more}</a>
+    <a class="card kpi" href="#emergency"><div class="label"><i class="swatch" style="background:var(--f-emergency)"></i>${L('Quỹ khẩn cấp')}</div><div class="value">${compact(em.bal)}</div>
+      <div class="foot">${L('Đủ {n} tháng chi tiêu · mục tiêu {target}', {n:`<b>${fmt1(em.months)}</b>`, target:em.target})}</div><div class="foot">${L('Thu – chi {y}:', {y:S.year})} <b class="${em.yearNet<0?'neg':'pos'}">${signedC(em.yearNet)}</b></div>${more}</a>
+    <a class="card kpi" href="#kids"><div class="label"><i class="swatch" style="background:var(--f-kids)"></i>${L('Quỹ cho con')}</div><div class="value">${compact(v.value)}</div>
+      <div class="foot">${L('Vốn góp')} <b>${compact(v.cost)}</b></div><div class="foot">${L('Lãi/lỗ')} <b class="${v.pl>=0?'pos':'neg'}">${pct(v.plPct,2)}</b> · ${signedC(v.pl)}</div>${more}</a>
+    <a class="card kpi" href="#settings"><div class="label"><i class="swatch" style="background:var(--f-risk)"></i>${L('Đầu tư rủi ro cao')}</div><div class="value">${compact(N.parts.risk)}</div>
+      <div class="foot">${esc(cfg().highRiskNote)||L('Chưa có danh mục')}</div><span class="card-link">${L('Cập nhật trong Thiết lập')} ${ico(ICONS.arrow)}</span></a>
   </div>
-  <div class="card section-gap"><div class="card-h"><h2>Phân bổ tài sản</h2><span class="sub">Tổng ${vnd(N.total)} ₫</span></div>
-    <div class="tbl-wrap"><table><thead><tr><th>Hạng mục</th><th>Giá trị (₫)</th><th>Tỷ trọng</th><th class="l" style="min-width:180px"></th></tr></thead>
+  <div class="card section-gap"><div class="card-h"><h2>${L('Phân bổ tài sản')}</h2><span class="sub">${L('Tổng {v} ₫', {v:vnd(N.total)})}</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>${L('Hạng mục')}</th><th>${L('Giá trị (₫)')}</th><th>${L('Tỷ trọng')}</th><th class="l" style="min-width:180px"></th></tr></thead>
     <tbody>${rows.map(([k,l,h])=>`<tr class="click" data-href="${h}"><td><i class="swatch" style="background:var(--f-${k});margin-right:8px"></i>${l}</td><td>${vnd(N.parts[k])}</td><td>${N.total?pctPlain(N.parts[k]/N.total):'—'}</td><td class="l"><div class="meter"><i style="width:${N.total?N.parts[k]/N.total*100:0}%;background:var(--f-${k})"></i></div></td></tr>`).join('')}
-      <tr class="total"><td>Tổng tài sản ròng</td><td>${vnd(N.total)}</td><td>100%</td><td></td></tr></tbody></table></div>
+      <tr class="total"><td>${L('Tổng tài sản ròng')}</td><td>${vnd(N.total)}</td><td>100%</td><td></td></tr></tbody></table></div>
   </div>`;
 }
 
 function reconTable(fund, principal, nBooks, diff, ok){
-  const c = cfg(); const L = S.fund.filter(e=>e.fund==='savings');
-  const sumT = t => sum(L.filter(e=>e.type===t), e=>e.amount), cnt = t => L.filter(e=>e.type===t).length;
+  const c = cfg(); const led = S.fund.filter(e=>e.fund==='savings');
+  const sumT = t => sum(led.filter(e=>e.type===t), e=>e.amount), cnt = t => led.filter(e=>e.type===t).length;
   return `<div class="recon">
-    <span>Số dư đầu kỳ (${fmtDate(c.openings.asOf)})</span><span class="v">${vnd(c.openings.savings)}</span>
-    <span>+ Nạp vào · ${cnt('in')} giao dịch</span><span class="v pos">+${vnd(sumT('in'))}</span>
-    <span>− Rút ra · ${cnt('out')} giao dịch</span><span class="v neg">−${vnd(sumT('out'))}</span>
-    <span>+ Nhận lãi · ${cnt('interest')} giao dịch</span><span class="v pos">+${vnd(sumT('interest'))}</span>
+    <span>${L('Số dư đầu kỳ ({date})', {date:fmtDate(c.openings.asOf)})}</span><span class="v">${vnd(c.openings.savings)}</span>
+    <span>+ ${L('Nạp vào · {n} giao dịch', {n:cnt('in')})}</span><span class="v pos">+${vnd(sumT('in'))}</span>
+    <span>− ${L('Rút ra · {n} giao dịch', {n:cnt('out')})}</span><span class="v neg">−${vnd(sumT('out'))}</span>
+    <span>+ ${L('Nhận lãi · {n} giao dịch', {n:cnt('interest')})}</span><span class="v pos">+${vnd(sumT('interest'))}</span>
     <span class="sep"></span>
-    <b>Số dư quỹ theo nhật ký</b><b class="v">${vnd(fund)}</b>
-    <span>Tổng gốc ${nBooks} sổ đang gửi</span><span class="v">${vnd(principal)}</span>
+    <b>${L('Số dư quỹ theo nhật ký')}</b><b class="v">${vnd(fund)}</b>
+    <span>${L('Tổng gốc {n} sổ đang gửi', {n:nBooks})}</span><span class="v">${vnd(principal)}</span>
     <span class="sep"></span>
-    <b>Chênh lệch</b><b class="v ${ok?'pos':'warn'}">${signed(diff)}</b></div>`;
+    <b>${L('Chênh lệch')}</b><b class="v ${ok?'pos':'warn'}">${signed(diff)}</b></div>`;
 }
 const daysTone = k => k.status==='closed'?'muted':k.status==='matured'?'neg':k.status==='soon'?'warn':'pos';
 /** Live countdown to maturity (midnight of the maturity date): "37 ngày" + "14:22:05". */
 function daysText(d, nowMs=Date.now()){
   if(isClosed(d)) return '<span class="muted">—</span>';
   const mat = depMaturity(d); const ms = parseISO(mat).getTime() - nowMs;
-  if(ms<=0) return `<b>Quá ${Math.floor(-ms/86400000)} ngày</b><small>hạn ${fmtDate(mat)}</small>`;
+  if(ms<=0) return `<b>${L('Quá {n} ngày', {n:Math.floor(-ms/86400000)})}</b><small>${L('hạn {date}', {date:fmtDate(mat)})}</small>`;
   const days = Math.floor(ms/86400000), r = ms%86400000;
-  return `<b>${days} ngày</b><small>${pad(Math.floor(r/3600000))}:${pad(Math.floor(r%3600000/60000))}:${pad(Math.floor(r%60000/1000))}</small>`;
+  return `<b>${L('{n} ngày', {n:days})}</b><small>${pad(Math.floor(r/3600000))}:${pad(Math.floor(r%3600000/60000))}:${pad(Math.floor(r%60000/1000))}</small>`;
 }
 function viewDeposits(){
   const act = activeDeposits(); const all = S.deposits.map(d=>({d,k:depCalc(d)}));
@@ -1011,44 +1028,45 @@ function viewDeposits(){
   const bankRows = Object.entries(banks).sort((a,b)=>b[1].v-a[1].v);
   const sched = all.filter(x=>x.k.status!=='closed').sort((a,b)=>a.k.mat.localeCompare(b.k.mat));
   const table = [...all].sort((a,b)=> (a.k.status==='closed')-(b.k.status==='closed') || a.k.mat.localeCompare(b.k.mat));
-  const statusChip = k => k.status==='closed'? '<span class="chip">Đã tất toán</span>' : k.status==='matured'? '<span class="chip neg">Đến hạn</span>' : k.status==='soon'? `<span class="chip warn">Đang gửi · còn ${k.left} ngày</span>` : '<span class="chip pos">Đang gửi</span>';
+  const statusChip = k => k.status==='closed'? `<span class="chip">${L('Đã tất toán')}</span>` : k.status==='matured'? `<span class="chip neg">${L('Đến hạn')}</span>` : k.status==='soon'? `<span class="chip warn">${L('Đang gửi · còn {n} ngày', {n:k.left})}</span>` : `<span class="chip pos">${L('Đang gửi')}</span>`;
+  const termTxt = n => L('{n} tháng', {n});
   return `${investTabs()}
   <div class="grid g-4">
-    ${kpi('<i class="swatch" style="background:var(--f-savings)"></i>Số dư Quỹ tiết kiệm', `${compact(fund)}`, `<b>${vnd(fund)}</b> ₫`, 'accent')}
-    ${kpi('Tổng gốc đang gửi', `${compact(principal)}`, `${act.length} sổ · <b>${vnd(principal)}</b> ₫`)}
-    ${kpi('Lãi tạm tính đến hiện tại', `<span class="pos">+${vnd(accrued)}</span>`, `Tính đến hết ngày <b>${fmtDate(todayISO())}</b> · cập nhật mỗi ngày`)}
-    ${kpi('Lãi dự kiến khi đến hạn', `+${compact(atMat)}`, `Gốc + lãi <b>${compact(principal+atMat)}</b>`)}
+    ${kpi(`<i class="swatch" style="background:var(--f-savings)"></i>${L('Số dư Quỹ tiết kiệm')}`, `${compact(fund)}`, `<b>${vnd(fund)}</b> ₫`, 'accent')}
+    ${kpi(L('Tổng gốc đang gửi'), `${compact(principal)}`, L('{n} sổ · {v} ₫', {n:act.length, v:`<b>${vnd(principal)}</b>`}))}
+    ${kpi(L('Lãi tạm tính đến hiện tại'), `<span class="pos">+${vnd(accrued)}</span>`, L('Tính đến hết ngày {date} · cập nhật mỗi ngày', {date:`<b>${fmtDate(todayISO())}</b>`}))}
+    ${kpi(L('Lãi dự kiến khi đến hạn'), `+${compact(atMat)}`, `${L('Gốc + lãi')} <b>${compact(principal+atMat)}</b>`)}
   </div>
   <div class="grid g-split section-gap">
-    <div class="card"><div class="card-h"><h2>Đối chiếu số dư quỹ và sổ đang gửi</h2></div>
+    <div class="card"><div class="card-h"><h2>${L('Đối chiếu số dư quỹ và sổ đang gửi')}</h2></div>
       ${reconTable(fund, principal, act.length, diff, ok)}
-      <div class="recon-status ${ok?'ok':'bad'}">${ico(ok?ICONS.check:ICONS.alert)}<div><b>${ok?'Khớp số liệu':'Có chênh lệch'}</b><span>${ok?'Tổng gốc các sổ khớp với số dư quỹ.': diff>0? `Nhật ký cao hơn tổng gốc ${vnd(diff)} ₫. Kiểm tra số dư đầu kỳ và các dòng rút/nạp; nếu số gốc trên sổ đã đúng, ghi một bút toán điều chỉnh.` : `Tổng gốc cao hơn nhật ký ${vnd(-diff)} ₫. Thường do tiền lãi nhập gốc (tái tục) chưa ghi “Nhận lãi” trong nhật ký.`}</span>${!ok && S.canWrite? `<button class="btn sm" type="button" data-fix-diff="${Math.round(diff)}" style="margin-top:8px">Ghi bút toán điều chỉnh ${signed(-diff)} ₫</button>`:''}</div></div>
+      <div class="recon-status ${ok?'ok':'bad'}">${ico(ok?ICONS.check:ICONS.alert)}<div><b>${ok?L('Khớp số liệu'):L('Có chênh lệch')}</b><span>${ok?L('Tổng gốc các sổ khớp với số dư quỹ.'): diff>0? L('Nhật ký cao hơn tổng gốc {v} ₫. Kiểm tra số dư đầu kỳ và các dòng rút/nạp; nếu số gốc trên sổ đã đúng, ghi một bút toán điều chỉnh.', {v:vnd(diff)}) : L('Tổng gốc cao hơn nhật ký {v} ₫. Thường do tiền lãi nhập gốc (tái tục) chưa ghi “Nhận lãi” trong nhật ký.', {v:vnd(-diff)})}</span>${!ok && S.canWrite? `<button class="btn sm" type="button" data-fix-diff="${Math.round(diff)}" style="margin-top:8px">${L('Ghi bút toán điều chỉnh {v} ₫', {v:signed(-diff)})}</button>`:''}</div></div>
     </div>
-    <div class="card"><div class="card-h"><h2>Phân loại theo ngân hàng</h2><span class="sub">Sổ đang gửi</span></div>
-      ${bankRows.length? `<div class="tbl-wrap"><table><thead><tr><th>Ngân hàng</th><th>Số sổ</th><th>Giá trị (₫)</th><th>Tỷ trọng</th></tr></thead>
+    <div class="card"><div class="card-h"><h2>${L('Phân loại theo ngân hàng')}</h2><span class="sub">${L('Sổ đang gửi')}</span></div>
+      ${bankRows.length? `<div class="tbl-wrap"><table><thead><tr><th>${L('Ngân hàng')}</th><th>${L('Số sổ')}</th><th>${L('Giá trị (₫)')}</th><th>${L('Tỷ trọng')}</th></tr></thead>
         <tbody>${bankRows.map(([b,x])=>`<tr><td>${bankBadge(b)}</td><td>${x.n}</td><td>${vnd(x.v)}</td><td>${pctPlain(x.v/principal)}</td></tr>`).join('')}
-        <tr class="total"><td>Tổng</td><td>${act.length}</td><td>${vnd(principal)}</td><td>100%</td></tr></tbody></table></div>` : '<div class="empty"><b>Chưa có sổ đang gửi</b></div>'}
+        <tr class="total"><td>${L('Tổng')}</td><td>${act.length}</td><td>${vnd(principal)}</td><td>100%</td></tr></tbody></table></div>` : `<div class="empty"><b>${L('Chưa có sổ đang gửi')}</b></div>`}
     </div>
   </div>
   <div class="grid g-split section-gap">
-    <div class="card"><div class="card-h"><h2>Lịch đáo hạn</h2><span class="sub">${sched.length} sổ đang gửi</span></div>
+    <div class="card"><div class="card-h"><h2>${L('Lịch đáo hạn')}</h2><span class="sub">${L('{n} sổ đang gửi', {n:sched.length})}</span></div>
       <div class="list">${sched.length? sched.map(({d,k})=>`<div class="mat"><div class="date"><b>${k.mat.slice(8,10)}</b><span>${k.mat.slice(5,7)}/${k.mat.slice(0,4)}</span></div>
-        <div style="min-width:0"><div class="t">${bankBadge(d.bank,'sm')} <span>${esc(d.label||'Kỳ hạn '+d.term+' tháng')}</span></div><div class="s">${d.term} tháng · ${(+d.rate||0).toLocaleString('vi-VN')}%/năm · lãi đáo hạn +${vnd(k.atMat)} ₫</div></div>
-        <div class="amt">${compact(d.amount)}<div>${statusChip(k)}</div></div></div>`).join('') : '<div class="empty"><b>Không có sổ sắp đáo hạn</b></div>'}</div>
+        <div style="min-width:0"><div class="t">${bankBadge(d.bank,'sm')} <span>${esc(d.label||L('Kỳ hạn {n} tháng', {n:d.term}))}</span></div><div class="s">${L('{term} · {rate}%/năm · lãi đáo hạn +{v} ₫', {term:termTxt(d.term), rate:I.num(d.rate,2), v:vnd(k.atMat)})}</div></div>
+        <div class="amt">${compact(d.amount)}<div>${statusChip(k)}</div></div></div>`).join('') : `<div class="empty"><b>${L('Không có sổ sắp đáo hạn')}</b></div>`}</div>
     </div>
-    <div class="card"><div class="card-h"><h2>Nhập giao dịch quỹ tiết kiệm</h2><span class="sub">Nạp vào, rút ra, nhận lãi</span></div>
-      ${S.canWrite? fundForm('savings') : '<p class="hint">Tài khoản chỉ xem không ghi được giao dịch.</p>'}</div>
+    <div class="card"><div class="card-h"><h2>${L('Nhập giao dịch quỹ tiết kiệm')}</h2><span class="sub">${L('Nạp vào, rút ra, nhận lãi')}</span></div>
+      ${S.canWrite? fundForm('savings') : `<p class="hint">${L('Tài khoản chỉ xem không ghi được giao dịch.')}</p>`}</div>
   </div>
-  <div class="card section-gap"><div class="card-h"><h2>Chi tiết các sổ tiết kiệm</h2>${S.canWrite?`<button class="btn sm primary" type="button" data-add-dep>${ico(ICONS.plus)}Thêm sổ</button>`:''}</div>
+  <div class="card section-gap"><div class="card-h"><h2>${L('Chi tiết các sổ tiết kiệm')}</h2>${S.canWrite?`<button class="btn sm primary" type="button" data-add-dep>${ico(ICONS.plus)}${L('Thêm sổ')}</button>`:''}</div>
     ${table.length? `<div class="tbl-wrap"><table>
-      <thead><tr><th>Ngân hàng</th><th class="l">Kỳ hạn</th><th>Ngày gửi</th><th>Ngày đáo hạn</th><th>Số tiền (₫)</th><th>Lãi %/năm</th><th>Lãi tạm tính</th><th>Tổng tiền<br><small>(lãi tạm tính)</small></th><th>Tổng tiền<br><small>(đến hạn)</small></th><th class="l">Trạng thái</th><th>Số ngày</th><th class="l">Ghi chú / nguồn</th>${S.canWrite?'<th></th>':''}</tr></thead>
-      <tbody>${table.map(({d,k})=>`<tr class="${k.status==='closed'?'muted-row':''}"><td>${bankBadge(d.bank)}</td><td class="txt">${d.term} tháng</td><td>${fmtDate(d.start)}</td><td>${fmtDate(k.mat)}</td><td><b>${vnd(d.amount)}</b></td><td>${(+d.rate||0).toLocaleString('vi-VN')}%</td><td class="pos">+${vnd(k.accrued)}<div class="sub-date">${k.elapsed}/${k.totalDays} ngày</div></td><td><b>${vnd((+d.amount||0)+k.accrued)}</b></td><td>${vnd((+d.amount||0)+k.atMat)}<div class="sub-date">lãi +${vnd(k.atMat)}</div></td><td class="txt">${statusChip(k)}</td><td class="days ${daysTone(k)}" ${k.status==='closed'?'':`data-live-days="${esc(d.id)}"`}>${daysText(d)}</td><td class="wrap">${esc(d.note||'')}</td>
-        ${S.canWrite?`<td><span class="act"><button class="btn xs" type="button" data-edit-dep="${esc(d.id)}">Sửa</button>${k.status==='closed'?`<button class="btn xs" type="button" data-reopen-dep="${esc(d.id)}">Mở lại</button>`:`<button class="btn xs" type="button" data-close-dep="${esc(d.id)}">Tất toán</button>`}${delBtn('deposits',d.id)}</span></td>`:''}</tr>`).join('')}
-        <tr class="total"><td>Tổng đang gửi</td><td></td><td></td><td></td><td>${vnd(principal)}</td><td></td><td class="pos">+${vnd(accrued)}</td><td>${vnd(principal+accrued)}</td><td>${vnd(principal+atMat)}</td><td></td><td></td><td></td>${S.canWrite?'<td></td>':''}</tr></tbody>
-    </table></div>` : `<div class="empty"><b>Chưa có sổ tiết kiệm</b>Bấm “Thêm sổ” để nhập sổ đầu tiên.</div>`}
-    <p class="hint" style="margin:10px 0 0">Lãi tạm tính = Tiền gửi × Lãi suất × Số ngày đã gửi / 365, tính đến hết ngày ${fmtDate(todayISO())}. Lãi đến hạn tính theo ngày đáo hạn đã lưu trên từng sổ.</p>
+      <thead><tr><th>${L('Ngân hàng')}</th><th class="l">${L('Kỳ hạn')}</th><th>${L('Ngày gửi')}</th><th>${L('Ngày đáo hạn')}</th><th>${L('Số tiền (₫)')}</th><th>${L('Lãi %/năm')}</th><th>${L('Lãi tạm tính')}</th><th>${L('Tổng tiền<br><small>(lãi tạm tính)</small>')}</th><th>${L('Tổng tiền<br><small>(đến hạn)</small>')}</th><th class="l">${L('Trạng thái')}</th><th>${L('Số ngày')}</th><th class="l">${L('Ghi chú / nguồn')}</th>${S.canWrite?'<th></th>':''}</tr></thead>
+      <tbody>${table.map(({d,k})=>`<tr class="${k.status==='closed'?'muted-row':''}"><td>${bankBadge(d.bank)}</td><td class="txt">${termTxt(d.term)}</td><td>${fmtDate(d.start)}</td><td>${fmtDate(k.mat)}</td><td><b>${vnd(d.amount)}</b></td><td>${I.num(d.rate,2)}%</td><td class="pos">+${vnd(k.accrued)}<div class="sub-date">${L('{a}/{b} ngày', {a:k.elapsed, b:k.totalDays})}</div></td><td><b>${vnd((+d.amount||0)+k.accrued)}</b></td><td>${vnd((+d.amount||0)+k.atMat)}<div class="sub-date">${L('lãi +{v}', {v:vnd(k.atMat)})}</div></td><td class="txt">${statusChip(k)}</td><td class="days ${daysTone(k)}" ${k.status==='closed'?'':`data-live-days="${esc(d.id)}"`}>${daysText(d)}</td><td class="wrap">${esc(d.note||'')}</td>
+        ${S.canWrite?`<td><span class="act"><button class="btn xs" type="button" data-edit-dep="${esc(d.id)}">${L('Sửa')}</button>${k.status==='closed'?`<button class="btn xs" type="button" data-reopen-dep="${esc(d.id)}">${L('Mở lại')}</button>`:`<button class="btn xs" type="button" data-close-dep="${esc(d.id)}">${L('Tất toán')}</button>`}${delBtn('deposits',d.id)}</span></td>`:''}</tr>`).join('')}
+        <tr class="total"><td>${L('Tổng đang gửi')}</td><td></td><td></td><td></td><td>${vnd(principal)}</td><td></td><td class="pos">+${vnd(accrued)}</td><td>${vnd(principal+accrued)}</td><td>${vnd(principal+atMat)}</td><td></td><td></td><td></td>${S.canWrite?'<td></td>':''}</tr></tbody>
+    </table></div>` : `<div class="empty"><b>${L('Chưa có sổ tiết kiệm')}</b>${L('Bấm “Thêm sổ” để nhập sổ đầu tiên.')}</div>`}
+    <p class="hint" style="margin:10px 0 0">${L('Lãi tạm tính = Tiền gửi × Lãi suất × Số ngày đã gửi / 365, tính đến hết ngày {date}. Lãi đến hạn tính theo ngày đáo hạn đã lưu trên từng sổ.', {date:fmtDate(todayISO())})}</p>
   </div>
-  <div class="card section-gap"><div class="card-h"><h2>Nhật ký giao dịch quỹ tiết kiệm</h2>${journalSub('savings')}</div>${fundJournal('savings')}</div>`;
+  <div class="card section-gap"><div class="card-h"><h2>${L('Nhật ký giao dịch quỹ tiết kiệm')}</h2>${journalSub('savings')}</div>${fundJournal('savings')}</div>`;
 }
 
 function viewEmergency(){
@@ -1056,32 +1074,32 @@ function viewEmergency(){
   const flows = fundYearFlows('emergency'); const years = Object.keys(flows).sort();
   let run = 0; const fRows = years.map(k=>{ const f=flows[k]; run += f.in-f.out; return {y:k, in:f.in, out:f.out, net:f.in-f.out, end:run}; });
   const tIn = sum(fRows,r=>r.in), tOut = sum(fRows,r=>r.out);
-  const pts = [{label:'Đầu', full:'Đầu năm '+y, v: fundBalance('emergency', (y-1)+'-12-31')}];
-  for(let i=1;i<=monthsElapsed(y);i++) pts.push({label:'T'+i, full:`Cuối tháng ${i}/${y}`, v:fundBalance('emergency', lastDayISO(y,i))});
+  const pts = [{label:L('Đầu'), full:L('Đầu năm {y}', {y}), v: fundBalance('emergency', (y-1)+'-12-31')}];
+  for(let i=1;i<=monthsElapsed(y);i++) pts.push({label:mShort(i), full:L('Cuối {month}', {month:monthIn(y,i)}), v:fundBalance('emergency', lastDayISO(y,i))});
   const minPct = em.minProgress;
   return `${investTabs()}
   <div class="grid g-3">
-    ${kpi('<i class="swatch" style="background:var(--f-emergency)"></i>Số dư quỹ khẩn cấp', `${vnd(em.bal)}<small>₫</small>`, 'Cập nhật ngay khi ghi nhận thu/chi', 'accent')}
-    ${kpi('Chi tiêu trung bình / tháng', `${vnd(em.avg)}<small>₫</small>`, `Tính trên ${esc(em.basis)}`)}
-    ${kpi(`Mục tiêu ${em.target} tháng`, `${vnd(em.targetAmt)}<small>₫</small>`, em.gap>=0? `<span class="chip pos">Dư ${vnd(em.gap)} ₫</span>` : `<span class="chip neg">Còn thiếu ${vnd(-em.gap)} ₫</span>`)}
-    <div class="card kpi"><div class="label">Số dư hiện đủ dùng</div><div class="value">${fmt1(em.months)}<small>tháng ≈ ${em.days} ngày</small></div>
+    ${kpi(`<i class="swatch" style="background:var(--f-emergency)"></i>${L('Số dư quỹ khẩn cấp')}`, `${vnd(em.bal)}<small>₫</small>`, L('Cập nhật ngay khi ghi nhận thu/chi'), 'accent')}
+    ${kpi(L('Chi tiêu trung bình / tháng'), `${vnd(em.avg)}<small>₫</small>`, L('Tính trên {basis}', {basis:esc(em.basis)}))}
+    ${kpi(L('Mục tiêu {n} tháng', {n:em.target}), `${vnd(em.targetAmt)}<small>₫</small>`, em.gap>=0? `<span class="chip pos">${L('Dư {v} ₫', {v:vnd(em.gap)})}</span>` : `<span class="chip neg">${L('Còn thiếu {v} ₫', {v:vnd(-em.gap)})}</span>`)}
+    <div class="card kpi"><div class="label">${L('Số dư hiện đủ dùng')}</div><div class="value">${fmt1(em.months)}<small>${L('tháng ≈ {n} ngày', {n:em.days})}</small></div>
       <div class="meter ${em.months>=em.target?'pos':em.months>=EMERGENCY_MIN?'gold':'warn'}" style="margin-top:9px"><i style="width:${Math.min(100,em.months/em.target*100)}%"></i></div>
-      <div class="foot">So với mục tiêu ${em.target} tháng (${em.target*30} ngày): ${pctPlain(Math.min(1,em.months/em.target),0)}</div></div>
-    ${kpi(`Thu – Chi quỹ năm ${y}`, `<span class="${em.yearNet<0?'neg':'pos'}">${signed(em.yearNet)}</span><small>₫</small>`, `Thu <b>${compact(em.yearIn)}</b> · Chi <b>${compact(em.yearOut)}</b> (đến nay)`)}
-    <div class="card kpi"><div class="label">Tiến độ mốc an toàn tối thiểu ${EMERGENCY_MIN} tháng</div><div class="value ${minPct>=1?'pos':''}">${pctPlain(Math.min(minPct,9.99),0)}</div>
+      <div class="foot">${L('So với mục tiêu {n} tháng ({d} ngày): {p}', {n:em.target, d:em.target*30, p:pctPlain(Math.min(1,em.months/em.target),0)})}</div></div>
+    ${kpi(L('Thu – Chi quỹ năm {y}', {y}), `<span class="${em.yearNet<0?'neg':'pos'}">${signed(em.yearNet)}</span><small>₫</small>`, L('Thu {in} · Chi {out} (đến nay)', {in:`<b>${compact(em.yearIn)}</b>`, out:`<b>${compact(em.yearOut)}</b>`}))}
+    <div class="card kpi"><div class="label">${L('Tiến độ mốc an toàn tối thiểu {n} tháng', {n:EMERGENCY_MIN})}</div><div class="value ${minPct>=1?'pos':''}">${pctPlain(Math.min(minPct,9.99),0)}</div>
       <div class="meter ${minPct>=1?'pos':'gold'}" style="margin-top:9px"><i style="width:${Math.min(100,minPct*100)}%"></i></div>
-      <div class="foot">Mốc ${vnd(em.minAmt)} ₫ · ${minPct>=1? `<span class="chip pos">Đã vượt ${compact(em.bal-em.minAmt)}</span>` : `<span class="chip warn">Còn thiếu ${vnd(em.minAmt-em.bal)} ₫</span>`}</div></div>
+      <div class="foot">${L('Mốc {v} ₫', {v:vnd(em.minAmt)})} · ${minPct>=1? `<span class="chip pos">${L('Đã vượt {v}', {v:compact(em.bal-em.minAmt)})}</span>` : `<span class="chip warn">${L('Còn thiếu {v} ₫', {v:vnd(em.minAmt-em.bal)})}</span>`}</div></div>
   </div>
   <div class="grid g-split section-gap">
-    <div class="card"><div class="card-h"><h2>Dòng tiền quỹ theo năm</h2><span class="sub">${years[0]||y} – hiện tại</span></div>
-      <div class="tbl-wrap"><table><thead><tr><th>Năm</th><th>Thu vào (₫)</th><th>Chi ra (₫)</th><th>Tiền ròng (₫)</th><th>Số dư cuối kỳ</th></tr></thead>
-        <tbody>${fRows.map(r=>`<tr><td><b>${r.y}</b>${+r.y===y?' <span class="chip acc">đến nay</span>':''}</td><td class="pos">${vnd(r.in)}</td><td class="neg">${vnd(r.out)}</td><td class="${r.net<0?'neg':'pos'}"><b>${signed(r.net)}</b></td><td>${vnd(r.end)}</td></tr>`).join('')}
-        <tr class="total"><td>Tổng cộng</td><td class="pos">${vnd(tIn)}</td><td class="neg">${vnd(tOut)}</td><td class="${tIn-tOut<0?'neg':'pos'}">${signed(tIn-tOut)}</td><td>${vnd(em.bal)}</td></tr></tbody></table></div>
-      <div style="margin-top:16px">${chartArea(pts,'var(--f-emergency)','Số dư quỹ khẩn cấp theo tháng','emg')}</div>
+    <div class="card"><div class="card-h"><h2>${L('Dòng tiền quỹ theo năm')}</h2><span class="sub">${L('{y} – hiện tại', {y:years[0]||y})}</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>${L('Năm')}</th><th>${L('Thu vào (₫)')}</th><th>${L('Chi ra (₫)')}</th><th>${L('Tiền ròng (₫)')}</th><th>${L('Số dư cuối kỳ')}</th></tr></thead>
+        <tbody>${fRows.map(r=>`<tr><td><b>${r.y}</b>${+r.y===y?` <span class="chip acc">${L('đến nay')}</span>`:''}</td><td class="pos">${vnd(r.in)}</td><td class="neg">${vnd(r.out)}</td><td class="${r.net<0?'neg':'pos'}"><b>${signed(r.net)}</b></td><td>${vnd(r.end)}</td></tr>`).join('')}
+        <tr class="total"><td>${L('Tổng cộng')}</td><td class="pos">${vnd(tIn)}</td><td class="neg">${vnd(tOut)}</td><td class="${tIn-tOut<0?'neg':'pos'}">${signed(tIn-tOut)}</td><td>${vnd(em.bal)}</td></tr></tbody></table></div>
+      <div style="margin-top:16px">${chartArea(pts,'var(--f-emergency)',L('Số dư quỹ khẩn cấp theo tháng'),'emg')}</div>
     </div>
-    <div class="card"><div class="card-h"><h2>Ghi nhận thu / chi quỹ khẩn cấp</h2></div>${S.canWrite? fundForm('emergency') : '<p class="hint">Tài khoản chỉ xem không ghi được giao dịch.</p>'}</div>
+    <div class="card"><div class="card-h"><h2>${L('Ghi nhận thu / chi quỹ khẩn cấp')}</h2></div>${S.canWrite? fundForm('emergency') : `<p class="hint">${L('Tài khoản chỉ xem không ghi được giao dịch.')}</p>`}</div>
   </div>
-  <div class="card section-gap"><div class="card-h"><h2>Nhật ký thu – chi quỹ khẩn cấp</h2>${journalSub('emergency')}</div>${fundJournal('emergency')}</div>`;
+  <div class="card section-gap"><div class="card-h"><h2>${L('Nhật ký thu – chi quỹ khẩn cấp')}</h2>${journalSub('emergency')}</div>${fundJournal('emergency')}</div>`;
 }
 
 function viewKids(){
@@ -1091,21 +1109,21 @@ function viewKids(){
   const sip = items.filter(i=>i.p.mode==='sip').length;
   return `${investTabs()}
   <div class="grid g-4">
-    ${kpi('<i class="swatch" style="background:var(--f-kids)"></i>Giá trị hiện tại', compact(P.value), `<b>${vnd(P.value)}</b> ₫ · ${items.length} sản phẩm`, 'accent')}
-    ${kpi('Vốn đã góp', compact(P.cost), `Vốn của phần đang nắm giữ · <b>${vnd(P.cost)}</b> ₫`)}
-    ${kpi('Lãi / lỗ', `<span class="${P.pl>=0?'pos':'neg'}">${signedC(P.pl)}</span>`, `<span class="chip ${P.unreal>=0?'pos':'neg'}">${pct(P.plPct,2)}</span> ${P.realized? `đã chốt <b class="${P.realized>=0?'pos':'neg'}">${signedC(P.realized)}</b>`:'chưa chốt lời/lỗ'}`)}
-    ${kpi('Giao dịch', `${P.tx}`, `${sip} sản phẩm định kỳ · ${items.length-sip} mua một lần`)}
+    ${kpi(`<i class="swatch" style="background:var(--f-kids)"></i>${L('Giá trị hiện tại')}`, compact(P.value), L('{v} ₫ · {n} sản phẩm', {v:`<b>${vnd(P.value)}</b>`, n:items.length}), 'accent')}
+    ${kpi(L('Vốn đã góp'), compact(P.cost), L('Vốn của phần đang nắm giữ · {v} ₫', {v:`<b>${vnd(P.cost)}</b>`}))}
+    ${kpi(L('Lãi / lỗ'), `<span class="${P.pl>=0?'pos':'neg'}">${signedC(P.pl)}</span>`, `<span class="chip ${P.unreal>=0?'pos':'neg'}">${pct(P.plPct,2)}</span> ${P.realized? `${L('đã chốt')} <b class="${P.realized>=0?'pos':'neg'}">${signedC(P.realized)}</b>`:L('chưa chốt lời/lỗ')}`)}
+    ${kpi(L('Giao dịch'), `${P.tx}`, L('{a} sản phẩm định kỳ · {b} mua một lần', {a:sip, b:items.length-sip}))}
   </div>
-  <div class="card section-gap"><div class="card-h"><h2>Danh mục đầu tư</h2>${S.canWrite?`<div class="top-actions"><button class="btn sm" type="button" data-add-product>${ico(ICONS.plus)}Thêm sản phẩm</button><button class="btn sm primary" type="button" data-add-lot="">${ico(ICONS.plus)}Thêm giao dịch</button></div>`:''}</div>
+  <div class="card section-gap"><div class="card-h"><h2>${L('Danh mục đầu tư')}</h2>${S.canWrite?`<div class="top-actions"><button class="btn sm" type="button" data-add-product>${ico(ICONS.plus)}${L('Thêm sản phẩm')}</button><button class="btn sm primary" type="button" data-add-lot="">${ico(ICONS.plus)}${L('Thêm giao dịch')}</button></div>`:''}</div>
     ${items.length? `<div class="tbl-wrap"><table>
-      <thead><tr><th>Sản phẩm</th><th class="l">Hình thức</th><th>Số lượng</th><th>Giá vốn BQ</th><th>Giá hiện tại</th><th>Giá trị (₫)</th><th>Vốn (₫)</th><th>Lãi / lỗ</th><th>Tỷ trọng</th></tr></thead>
-      <tbody>${items.map(i=>`<tr class="click ${i.p.id===S.product?'sel':''}" data-product="${esc(i.p.id)}"><td><div class="prod"><i class="swatch" style="background:${i.p.color}"></i><div><b>${esc(productLabel(i.p))}</b><span>${esc(i.p.manager||'—')} · ${PRODUCT_TYPES[i.p.type]||'Khác'}</span></div></div></td>
+      <thead><tr><th>${L('Sản phẩm')}</th><th class="l">${L('Hình thức')}</th><th>${L('Số lượng')}</th><th>${L('Giá vốn BQ')}</th><th>${L('Giá hiện tại')}</th><th>${L('Giá trị (₫)')}</th><th>${L('Vốn (₫)')}</th><th>${L('Lãi / lỗ')}</th><th>${L('Tỷ trọng')}</th></tr></thead>
+      <tbody>${items.map(i=>`<tr class="click ${i.p.id===S.product?'sel':''}" data-product="${esc(i.p.id)}"><td><div class="prod"><i class="swatch" style="background:${i.p.color}"></i><div><b>${esc(productLabel(i.p))}</b><span>${esc(i.p.manager? L(i.p.manager) : '—')} · ${PRODUCT_TYPES[i.p.type]||L('Khác')}</span></div></div></td>
         <td class="txt"><span class="chip ${i.p.mode==='sip'?'acc':'gold'}">${PRODUCT_MODES[i.p.mode]||PRODUCT_MODES.lump}</span></td>
-        <td>${fmtUnits(i.units)} <span class="muted">${esc(i.p.unit||'')}</span></td><td>${fmtPrice(i.avg)}</td><td>${fmtPrice(i.price)}<div class="sub-date">${i.p.priceDate? fmtDate(i.p.priceDate):'chưa cập nhật'}</div></td>
+        <td>${fmtUnits(i.units)} <span class="muted">${esc(unitLabel(i.p.unit))}</span></td><td>${fmtPrice(i.avg)}</td><td>${fmtPrice(i.price)}<div class="sub-date">${i.p.priceDate? fmtDate(i.p.priceDate):L('chưa cập nhật')}</div></td>
         <td><b>${vnd(i.value)}</b></td><td>${vnd(i.cost)}</td><td class="${i.pl>=0?'pos':'neg'}">${signed(i.pl)}<div class="sub-date">${pct(i.plPct,2)}</div></td><td>${P.value? pctPlain(i.value/P.value):'—'}</td></tr>`).join('')}
-      <tr class="total"><td>Tổng danh mục</td><td></td><td></td><td></td><td></td><td>${vnd(P.value)}</td><td>${vnd(P.cost)}</td><td class="${P.pl>=0?'pos':'neg'}">${signed(P.pl)}</td><td>100%</td></tr></tbody></table></div>
-      <p class="hint" style="margin:10px 0 0">Bấm vào một sản phẩm để xem chi tiết, cập nhật giá và giao dịch của riêng sản phẩm đó.</p>`
-    : `<div class="empty"><b>Chưa có sản phẩm đầu tư</b>Bấm “Thêm sản phẩm” để tạo quỹ đầu tiên, rồi thêm giao dịch mua.</div>`}
+      <tr class="total"><td>${L('Tổng danh mục')}</td><td></td><td></td><td></td><td></td><td>${vnd(P.value)}</td><td>${vnd(P.cost)}</td><td class="${P.pl>=0?'pos':'neg'}">${signed(P.pl)}</td><td>100%</td></tr></tbody></table></div>
+      <p class="hint" style="margin:10px 0 0">${L('Bấm vào một sản phẩm để xem chi tiết, cập nhật giá và giao dịch của riêng sản phẩm đó.')}</p>`
+    : `<div class="empty"><b>${L('Chưa có sản phẩm đầu tư')}</b>${L('Bấm “Thêm sản phẩm” để tạo quỹ đầu tiên, rồi thêm giao dịch mua.')}</div>`}
   </div>
   ${kidsByYear()}
   ${sel? productDetail(sel, items) : ''}`;
@@ -1114,38 +1132,38 @@ function kidsByYear(){
   const rows={}; for(const l of S.vcbf){ const y=(l.date||'').slice(0,4); if(!y) continue; rows[y]=rows[y]||{buy:0,sell:0,n:0}; const v=(+l.units||0)*(+l.price||0); if(l.side==='sell') rows[y].sell+=v-(+l.fee||0); else rows[y].buy+=v+(+l.fee||0); rows[y].n++; }
   const ys=Object.keys(rows).sort(); if(!ys.length) return '';
   let cum=0; const T={buy:sum(ys,y=>rows[y].buy), sell:sum(ys,y=>rows[y].sell), n:sum(ys,y=>rows[y].n)};
-  return `<div class="card section-gap"><div class="card-h"><h2>Vốn góp theo năm</h2><span class="sub">Tất cả sản phẩm · lũy kế qua các năm</span></div>
-    <div class="tbl-wrap"><table><thead><tr><th>Năm</th><th>Giao dịch</th><th>Mua vào (₫)</th><th>Bán / rút (₫)</th><th>Góp ròng (₫)</th><th>Lũy kế góp ròng (₫)</th></tr></thead>
+  return `<div class="card section-gap"><div class="card-h"><h2>${L('Vốn góp theo năm')}</h2><span class="sub">${L('Tất cả sản phẩm · lũy kế qua các năm')}</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>${L('Năm')}</th><th>${L('Giao dịch')}</th><th>${L('Mua vào (₫)')}</th><th>${L('Bán / rút (₫)')}</th><th>${L('Góp ròng (₫)')}</th><th>${L('Lũy kế góp ròng (₫)')}</th></tr></thead>
     <tbody>${ys.map(y=>{ const r=rows[y], net=r.buy-r.sell; cum+=net; return `<tr class="click ${+y===S.year?'sel':''}" data-set-year="${y}"><td><b>${y}</b></td><td>${r.n}</td><td>${vnd(r.buy)}</td><td>${r.sell?vnd(r.sell):'—'}</td><td>${vnd(net)}</td><td><b>${vnd(cum)}</b></td></tr>`; }).join('')}
-      <tr class="total"><td>Tổng</td><td>${T.n}</td><td>${vnd(T.buy)}</td><td>${T.sell?vnd(T.sell):'—'}</td><td>${vnd(T.buy-T.sell)}</td><td>${vnd(T.buy-T.sell)}</td></tr></tbody></table></div></div>`;
+      <tr class="total"><td>${L('Tổng')}</td><td>${T.n}</td><td>${vnd(T.buy)}</td><td>${T.sell?vnd(T.sell):'—'}</td><td>${vnd(T.buy-T.sell)}</td><td>${vnd(T.buy-T.sell)}</td></tr></tbody></table></div></div>`;
 }
 function productDetail(i, items){
   const p = i.p; const buys = i.lots.filter(l=>l.side!=='sell');
   return `<div class="card section-gap" id="productDetail">
     <div class="card-h"><h2>${esc(productLabel(p))}${p.name && p.code? ` <span class="muted" style="font-weight:500;font-size:13px">· ${esc(p.name)}</span>`:''}</h2>
-      ${S.canWrite?`<div class="top-actions"><button class="btn sm" type="button" data-edit-product="${esc(p.id)}">Sửa thông tin</button><button class="btn sm primary" type="button" data-add-lot="${esc(p.id)}">${ico(ICONS.plus)}Giao dịch ${esc(productLabel(p))}</button></div>`:''}</div>
-    ${items.length>1? `<div class="pills" style="margin-bottom:14px" role="group" aria-label="Chọn sản phẩm">${items.map(x=>`<button type="button" class="pill" data-product="${esc(x.p.id)}" aria-pressed="${x.p.id===p.id}"><i class="swatch" style="background:${x.p.color}"></i>${esc(productLabel(x.p))}</button>`).join('')}</div>` : ''}
+      ${S.canWrite?`<div class="top-actions"><button class="btn sm" type="button" data-edit-product="${esc(p.id)}">${L('Sửa thông tin')}</button><button class="btn sm primary" type="button" data-add-lot="${esc(p.id)}">${ico(ICONS.plus)}${L('Giao dịch {p}', {p:esc(productLabel(p))})}</button></div>`:''}</div>
+    ${items.length>1? `<div class="pills" style="margin-bottom:14px" role="group" aria-label="${L('Chọn sản phẩm')}">${items.map(x=>`<button type="button" class="pill" data-product="${esc(x.p.id)}" aria-pressed="${x.p.id===p.id}"><i class="swatch" style="background:${x.p.color}"></i>${esc(productLabel(x.p))}</button>`).join('')}</div>` : ''}
     <div class="grid g-4">
-      <div class="mini"><span>Công ty quản lý</span><b>${esc(p.manager||'—')}</b><em>${PRODUCT_TYPES[p.type]||'Khác'} · ${PRODUCT_MODES[p.mode]||PRODUCT_MODES.lump}</em></div>
-      <div class="mini"><span>Đang nắm giữ</span><b>${fmtUnits(i.units)} ${esc(p.unit||'')}</b><em>Giá vốn BQ ${fmtPrice(i.avg)}</em></div>
-      <div class="mini"><span>Giá trị hiện tại</span><b>${vnd(i.value)}</b><em>Vốn ${vnd(i.cost)}</em></div>
-      <div class="mini"><span>Lãi / lỗ</span><b class="${i.pl>=0?'pos':'neg'}">${signed(i.pl)}</b><em>${pct(i.plPct,2)}${i.realized? ` · đã chốt ${signedC(i.realized)}`:''}</em></div>
+      <div class="mini"><span>${L('Công ty quản lý')}</span><b>${esc(p.manager? L(p.manager) : '—')}</b><em>${PRODUCT_TYPES[p.type]||L('Khác')} · ${PRODUCT_MODES[p.mode]||PRODUCT_MODES.lump}</em></div>
+      <div class="mini"><span>${L('Đang nắm giữ')}</span><b>${fmtUnits(i.units)} ${esc(unitLabel(p.unit))}</b><em>${L('Giá vốn BQ')} ${fmtPrice(i.avg)}</em></div>
+      <div class="mini"><span>${L('Giá trị hiện tại')}</span><b>${vnd(i.value)}</b><em>${L('Vốn')} ${vnd(i.cost)}</em></div>
+      <div class="mini"><span>${L('Lãi / lỗ')}</span><b class="${i.pl>=0?'pos':'neg'}">${signed(i.pl)}</b><em>${pct(i.plPct,2)}${i.realized? ` · ${L('đã chốt')} ${signedC(i.realized)}`:''}</em></div>
     </div>
     <div class="price-row">
-      <div class="field" style="flex:1;min-width:200px"><label for="price-${esc(p.id)}">Giá ${esc(p.unit||'đơn vị')} hiện tại · ${esc(productLabel(p))}</label>
-        ${S.canWrite? `<div style="display:flex;gap:6px"><input class="input num" id="price-${esc(p.id)}" inputmode="decimal" value="${i.price? String(i.price).replace('.',','):''}" placeholder="vd: 13732,75"><button class="btn primary" type="button" data-save-price="${esc(p.id)}">Cập nhật giá</button></div>` : `<b class="num">${fmtPrice(i.price)}</b>`}</div>
-      <p class="hint" style="margin:0;flex:1;min-width:200px">${p.priceDate? 'Cập nhật lần cuối '+fmtDate(p.priceDate)+'.' : 'Chưa cập nhật giá.'} Giá này chỉ áp dụng cho ${esc(productLabel(p))}; mỗi sản phẩm giữ giá riêng.</p>
+      <div class="field" style="flex:1;min-width:200px"><label for="price-${esc(p.id)}">${L('Giá {unit} hiện tại · {p}', {unit:esc(unitLabel(p.unit||'đơn vị')), p:esc(productLabel(p))})}</label>
+        ${S.canWrite? `<div style="display:flex;gap:6px"><input class="input num" id="price-${esc(p.id)}" inputmode="decimal" value="${i.price? I.decIn(i.price):''}" placeholder="${L('vd: 13732,75')}"><button class="btn primary" type="button" data-save-price="${esc(p.id)}">${L('Cập nhật giá')}</button></div>` : `<b class="num">${fmtPrice(i.price)}</b>`}</div>
+      <p class="hint" style="margin:0;flex:1;min-width:200px">${p.priceDate? L('Cập nhật lần cuối {date}.', {date:fmtDate(p.priceDate)}) : L('Chưa cập nhật giá.')} ${L('Giá này chỉ áp dụng cho {p}; mỗi sản phẩm giữ giá riêng.', {p:esc(productLabel(p))})}</p>
     </div>
-    ${buys.length? `<div class="section-gap"><div class="flabel" style="margin-bottom:6px">Lãi/lỗ % từng lần mua theo thời gian</div>${chartLotPL(buys, i.price)}</div>`:''}
+    ${buys.length? `<div class="section-gap"><div class="flabel" style="margin-bottom:6px">${L('Lãi/lỗ % từng lần mua theo thời gian')}</div>${chartLotPL(buys, i.price)}</div>`:''}
     <div class="section-gap">${i.lots.length? `<div class="tbl-wrap"><table>
-      <thead><tr><th>Ngày</th><th class="l">Loại</th><th>Số lượng</th><th>Giá</th><th>Giá trị giao dịch</th><th>Giá trị hiện tại</th><th>Lãi / lỗ</th><th class="l" style="min-width:140px">% lãi/lỗ</th></tr></thead>
+      <thead><tr><th>${L('Ngày')}</th><th class="l">${L('Loại')}</th><th>${L('Số lượng')}</th><th>${L('Giá')}</th><th>${L('Giá trị giao dịch')}</th><th>${L('Giá trị hiện tại')}</th><th>${L('Lãi / lỗ')}</th><th class="l" style="min-width:140px">${L('% lãi/lỗ')}</th></tr></thead>
       <tbody>${i.lots.map(l=>{ const u=+l.units||0, pr=+l.price||0, fee=+l.fee||0, sell=l.side==='sell';
         const amount = u*pr + (sell? -fee : fee), val = u*i.price, r = pr? (i.price-pr)/pr : 0, w = Math.min(50, Math.abs(r)*250);
-        return `<tr class="click" data-edit-lot="${esc(l.id)}"><td class="num">${fmtDate(l.date)}</td><td class="txt"><span class="chip ${sell?'neg':'pos'}">${sell?'Bán / rút':'Mua'}</span></td><td>${fmtUnits(u)}</td><td>${fmtPrice(pr)}</td><td>${vnd(amount)}</td>
+        return `<tr class="click" data-edit-lot="${esc(l.id)}"><td class="num">${fmtDate(l.date)}</td><td class="txt"><span class="chip ${sell?'neg':'pos'}">${sell?L('Bán / rút'):L('Mua')}</span></td><td>${fmtUnits(u)}</td><td>${fmtPrice(pr)}</td><td>${vnd(amount)}</td>
           <td>${sell?'—':vnd(val)}</td><td class="${sell?'':val-amount>=0?'pos':'neg'}">${sell?'—':signed(val-amount)}</td>
-          <td class="l">${sell? '<span class="muted">Đã chốt</span>' : `<div style="display:flex;align-items:center;gap:8px"><div style="position:relative;width:80px;height:8px;background:var(--sunken);border-radius:4px;flex:none"><span style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--line)"></span><span style="position:absolute;top:0;bottom:0;border-radius:4px;${r>=0?`left:50%;width:${w}%;background:var(--pos)`:`right:50%;width:${w}%;background:var(--neg)`}"></span></div><span class="${r>=0?'pos':'neg'}">${pct(r,1)}</span></div>`}</td></tr>`; }).join('')}
-        <tr class="total"><td>Tổng</td><td></td><td>${fmtUnits(i.units)}</td><td>${fmtPrice(i.avg)}</td><td>${vnd(i.cost)}</td><td>${vnd(i.value)}</td><td class="${i.pl>=0?'pos':'neg'}">${signed(i.pl)}</td><td class="l ${i.pl>=0?'pos':'neg'}">${pct(i.plPct,2)}</td></tr>
-      </tbody></table></div>` : `<div class="empty"><b>Chưa có giao dịch</b>Bấm “Giao dịch ${esc(productLabel(p))}” để thêm lần mua đầu tiên.</div>`}</div>
+          <td class="l">${sell? `<span class="muted">${L('Đã chốt')}</span>` : `<div style="display:flex;align-items:center;gap:8px"><div style="position:relative;width:80px;height:8px;background:var(--sunken);border-radius:4px;flex:none"><span style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--line)"></span><span style="position:absolute;top:0;bottom:0;border-radius:4px;${r>=0?`left:50%;width:${w}%;background:var(--pos)`:`right:50%;width:${w}%;background:var(--neg)`}"></span></div><span class="${r>=0?'pos':'neg'}">${pct(r,1)}</span></div>`}</td></tr>`; }).join('')}
+        <tr class="total"><td>${L('Tổng')}</td><td></td><td>${fmtUnits(i.units)}</td><td>${fmtPrice(i.avg)}</td><td>${vnd(i.cost)}</td><td>${vnd(i.value)}</td><td class="${i.pl>=0?'pos':'neg'}">${signed(i.pl)}</td><td class="l ${i.pl>=0?'pos':'neg'}">${pct(i.plPct,2)}</td></tr>
+      </tbody></table></div>` : `<div class="empty"><b>${L('Chưa có giao dịch')}</b>${L('Bấm “Giao dịch {p}” để thêm lần mua đầu tiên.', {p:esc(productLabel(p))})}</div>`}</div>
   </div>`;
 }
 
@@ -1156,39 +1174,40 @@ function viewSettings(){
   const c = cfg(); const ro = S.canWrite? '' : 'readonly';
   const budTotal = sum(CATS,cc=>c.budgets[cc.id]);
   return `<div class="grid g-2">
-    <div class="card"><div class="card-h"><h2>Ngân sách chi tiêu tháng</h2><span class="sub num">Tổng ${vnd(budTotal)} ₫</span></div>
-      <div class="stack" style="gap:10px">${CATS.map(cc=>`<div class="field"><label for="bud-${cc.id}"><i class="swatch" style="background:var(--c-${cc.id});margin-right:6px"></i>${cc.name}</label><input class="input num" id="bud-${cc.id}" data-budget="${cc.id}" value="${c.budgets[cc.id]?vnd(c.budgets[cc.id]):''}" placeholder="vd: 12tr" ${ro}></div>`).join('')}</div>
-      <p class="hint">Dùng để cảnh báo khi một khoản chi vượt ngân sách. Tự lưu khi rời ô.</p>
+    <div class="card"><div class="card-h"><h2>${L('Ngân sách chi tiêu tháng')}</h2><span class="sub num">${L('Tổng {v} ₫', {v:vnd(budTotal)})}</span></div>
+      <div class="stack" style="gap:10px">${CATS.map(cc=>`<div class="field"><label for="bud-${cc.id}"><i class="swatch" style="background:var(--c-${cc.id});margin-right:6px"></i>${cc.name}</label><input class="input num" id="bud-${cc.id}" data-budget="${cc.id}" value="${c.budgets[cc.id]?vnd(c.budgets[cc.id]):''}" placeholder="${L('vd: 12tr')}" ${ro}></div>`).join('')}</div>
+      <p class="hint">${L('Dùng để cảnh báo khi một khoản chi vượt ngân sách. Tự lưu khi rời ô.')}</p>
     </div>
     <div class="stack">
-      <div class="card"><div class="card-h"><h2>Đầu tư rủi ro cao</h2></div>
-        <div class="field"><label for="riskVal">Giá trị hiện tại (₫)</label><input class="input num" id="riskVal" data-cfg-amount="highRisk" value="${c.highRisk?vnd(c.highRisk):'0'}" ${ro}></div>
-        <div class="field" style="margin-top:10px"><label for="riskNote">Ghi chú danh mục</label><input class="input" id="riskNote" data-cfg-text="highRiskNote" value="${esc(c.highRiskNote)}" placeholder="vd: cổ phiếu, vàng…" ${ro}></div>
+      <div class="card"><div class="card-h"><h2>${L('Đầu tư rủi ro cao')}</h2></div>
+        <div class="field"><label for="riskVal">${L('Giá trị hiện tại (₫)')}</label><input class="input num" id="riskVal" data-cfg-amount="highRisk" value="${c.highRisk?vnd(c.highRisk):'0'}" ${ro}></div>
+        <div class="field" style="margin-top:10px"><label for="riskNote">${L('Ghi chú danh mục')}</label><input class="input" id="riskNote" data-cfg-text="highRiskNote" value="${esc(c.highRiskNote)}" placeholder="${L('vd: cổ phiếu, vàng…')}" ${ro}></div>
       </div>
-      <div class="card"><div class="card-h"><h2>Quỹ khẩn cấp</h2></div>
-        <div class="field"><label for="emgTarget">Mục tiêu (số tháng chi tiêu)</label><input class="input num" id="emgTarget" data-cfg-int="emergencyTarget" value="${c.emergencyTarget}" inputmode="numeric" ${ro}><span class="hint">Mốc an toàn tối thiểu cố định ${EMERGENCY_MIN} tháng.</span></div>
+      <div class="card"><div class="card-h"><h2>${L('Quỹ khẩn cấp')}</h2></div>
+        <div class="field"><label for="emgTarget">${L('Mục tiêu (số tháng chi tiêu)')}</label><input class="input num" id="emgTarget" data-cfg-int="emergencyTarget" value="${c.emergencyTarget}" inputmode="numeric" ${ro}><span class="hint">${L('Mốc an toàn tối thiểu cố định {n} tháng.', {n:EMERGENCY_MIN})}</span></div>
       </div>
-      <div class="card"><div class="card-h"><h2>Số dư đầu kỳ</h2><span class="sub">tính đến ${fmtDate(c.openings.asOf)}</span></div>
-        <div class="row2"><div class="field"><label for="opE">Quỹ khẩn cấp</label><input class="input num" id="opE" data-opening="emergency" value="${vnd(c.openings.emergency)}" ${ro}></div>
-        <div class="field"><label for="opS">Quỹ tiết kiệm</label><input class="input num" id="opS" data-opening="savings" value="${vnd(c.openings.savings)}" ${ro}></div></div>
+      <div class="card"><div class="card-h"><h2>${L('Số dư đầu kỳ')}</h2><span class="sub">${L('tính đến {date}', {date:fmtDate(c.openings.asOf)})}</span></div>
+        <div class="row2"><div class="field"><label for="opE">${L('Quỹ khẩn cấp')}</label><input class="input num" id="opE" data-opening="emergency" value="${vnd(c.openings.emergency)}" ${ro}></div>
+        <div class="field"><label for="opS">${L('Quỹ tiết kiệm')}</label><input class="input num" id="opS" data-opening="savings" value="${vnd(c.openings.savings)}" ${ro}></div></div>
       </div>
     </div>
   </div>
   <div class="grid g-2 section-gap">
-    <div class="card"><div class="card-h"><h2>Tài sản ròng các năm trước</h2><span class="sub">Dùng để so sánh tăng trưởng</span></div>
-      <div class="row2">${navYears().map(k=>`<div class="field"><label for="nav-${k}">Cuối năm ${k}</label><input class="input num" id="nav-${k}" data-nav="${k}" value="${c.navHistory[k]?vnd(c.navHistory[k]):''}" placeholder="chưa chốt" ${ro}></div>`).join('')}</div>
-      ${S.canWrite && curYear()-1>ledgerStartYear()? `<div style="margin-top:12px"><button class="btn sm" type="button" data-close-year="${curYear()-1}">Chốt lại tài sản ròng cuối năm ${curYear()-1} từ sổ quỹ</button></div>`:''}
-      <p class="hint">Mỗi đầu năm, hệ thống tự chốt tài sản ròng cuối năm trước để làm mốc so sánh.</p>
+    <div class="card"><div class="card-h"><h2>${L('Tài sản ròng các năm trước')}</h2><span class="sub">${L('Dùng để so sánh tăng trưởng')}</span></div>
+      <div class="row2">${navYears().map(k=>`<div class="field"><label for="nav-${k}">${L('Cuối năm {y}', {y:k})}</label><input class="input num" id="nav-${k}" data-nav="${k}" value="${c.navHistory[k]?vnd(c.navHistory[k]):''}" placeholder="${L('chưa chốt')}" ${ro}></div>`).join('')}</div>
+      ${S.canWrite && curYear()-1>ledgerStartYear()? `<div style="margin-top:12px"><button class="btn sm" type="button" data-close-year="${curYear()-1}">${L('Chốt lại tài sản ròng cuối năm {y} từ sổ quỹ', {y:curYear()-1})}</button></div>`:''}
+      <p class="hint">${L('Mỗi đầu năm, hệ thống tự chốt tài sản ròng cuối năm trước để làm mốc so sánh.')}</p>
     </div>
-    <div class="card"><div class="card-h"><h2>Xuất dữ liệu</h2></div>
-      <p class="hint" style="margin-top:0">Tải về để mở bằng Excel hoặc sao lưu toàn bộ.</p>
+    <div class="card"><div class="card-h"><h2>${L('Xuất dữ liệu')}</h2></div>
+      <p class="hint" style="margin-top:0">${L('Tải về để mở bằng Excel hoặc sao lưu toàn bộ.')}</p>
       <div class="top-actions">
-        <button class="btn" type="button" data-export="tx">${ico(ICONS.down)}Thu chi (.csv)</button>
-        <button class="btn" type="button" data-export="fund">${ico(ICONS.down)}Sổ quỹ (.csv)</button>
-        <button class="btn" type="button" data-export="json">${ico(ICONS.down)}Sao lưu (.json)</button>
+        <button class="btn" type="button" data-export="tx">${ico(ICONS.down)}${L('Thu chi (.csv)')}</button>
+        <button class="btn" type="button" data-export="fund">${ico(ICONS.down)}${L('Sổ quỹ (.csv)')}</button>
+        <button class="btn" type="button" data-export="json">${ico(ICONS.down)}${L('Sao lưu (.json)')}</button>
       </div>
     </div>
   </div>
+  ${viewLanguage()}
   ${viewAppearance()}
   ${viewMembers()}
   ${viewShortcuts()}`;
@@ -1197,124 +1216,137 @@ function navYears(){ const ys=[]; for(let k=firstYear(); k<curYear(); k++) ys.pu
 /* ---------- iPhone Shortcuts (widget) ---------- */
 function loadTokens(){ if(S._tokensLoading || !window.FIN) return; S._tokensLoading=true;
   FIN.listTokens().then(t=>{ S.tokens=t; }).catch(()=>{ S.tokens=[]; }).finally(()=>{ S._tokensLoading=false; scheduleRender(); }); }
-function copyBtn(text, label='Sao chép'){ return `<button class="btn xs" type="button" data-copy="${esc(text)}">${label}</button>`; }
+function copyBtn(text, label=L('Sao chép')){ return `<button class="btn xs" type="button" data-copy="${esc(text)}">${label}</button>`; }
 function viewShortcuts(){
   const me = window.FIN?.session(); if(!me) return '';
   if(!S.tokens) loadTokens();
-  const origin = location.origin, sumUrl = origin+'/api/shortcut/summary', addUrl = origin+'/api/shortcut/add';
+  const lq = I.get()==='vi'? '' : '?lang='+I.get();   // the shortcut answers in the language chosen here
+  const origin = location.origin, sumUrl = origin+'/api/shortcut/summary'+lq, addUrl = origin+'/api/shortcut/add'+lq;
   const canAdd = me.role!=='viewer';
-  const fmtTs = ms => ms? fmtDateTime(new Date(ms)).slice(0,16) : 'chưa dùng';
-  return `<div class="card section-gap" id="shortcutCard"><div class="card-h"><h2>Phím tắt & widget iPhone</h2><span class="sub">Dùng ứng dụng Phím tắt có sẵn của Apple</span></div>
+  const fmtTs = ms => ms? fmtDateTime(new Date(ms)).slice(0,16) : L('chưa dùng');
+  return `<div class="card section-gap" id="shortcutCard"><div class="card-h"><h2>${L('Phím tắt & widget iPhone')}</h2><span class="sub">${L('Dùng ứng dụng Phím tắt có sẵn của Apple')}</span></div>
     <div class="grid g-split">
       <div class="stack" style="gap:14px">
-        <p class="hint" style="margin:0">Ứng dụng web không tạo được widget riêng; ứng dụng <b>Phím tắt</b> của iPhone làm thay: đặt widget ra màn hình chính để <b>xem tình hình</b> hoặc <b>ghi chi tiêu</b> mà không cần mở ứng dụng. Mỗi người tạo một mã cho iPhone của mình; mã chỉ dùng được cho hai việc này và có thể thu hồi bất cứ lúc nào.</p>
+        <p class="hint" style="margin:0">${L('Ứng dụng web không tạo được widget riêng; ứng dụng <b>Phím tắt</b> của iPhone làm thay: đặt widget ra màn hình chính để <b>xem tình hình</b> hoặc <b>ghi chi tiêu</b> mà không cần mở ứng dụng. Mỗi người tạo một mã cho iPhone của mình; mã chỉ dùng được cho hai việc này và có thể thu hồi bất cứ lúc nào.')}</p>
         <form id="tokenForm" class="row2" novalidate style="align-items:end">
-          <div class="field"><label for="tk-name">Tên thiết bị</label><input class="input" id="tk-name" maxlength="40" value="iPhone của ${esc(me.name)}"></div>
-          <div><button class="btn primary" type="submit">${ico(ICONS.plus)}Tạo mã phím tắt</button></div>
+          <div class="field"><label for="tk-name">${L('Tên thiết bị')}</label><input class="input" id="tk-name" maxlength="40" value="${esc(L('iPhone của {name}', {name:me.name}))}"></div>
+          <div><button class="btn primary" type="submit">${ico(ICONS.plus)}${L('Tạo mã phím tắt')}</button></div>
         </form>
-        ${S.newToken? `<div class="token-box"><b>Mã của bạn — chỉ hiện một lần, hãy sao chép ngay:</b><code id="newToken">${esc(S.newToken)}</code><div class="top-actions">${copyBtn(S.newToken,'Sao chép mã')}${copyBtn('Bearer '+S.newToken,'Sao chép “Bearer + mã”')}<button class="btn xs ghost" type="button" data-hide-token>Đã lưu, ẩn đi</button></div></div>` : ''}
-        <div class="list">${!S.tokens? '<div class="hint">Đang tải…</div>' : !S.tokens.length? '<div class="hint">Chưa có mã nào.</div>' :
-          S.tokens.map(t=>`<div class="row" style="grid-template-columns:auto minmax(0,1fr) auto"><span class="cat-ico" style="--c:var(--accent)">${ico('<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>')}</span><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="s">Tạo ${fmtTs(t.createdAt)} · dùng gần nhất ${fmtTs(t.lastUsed)}</div></div><button class="btn xs danger" type="button" data-revoke-token="${esc(t.id)}">Thu hồi</button></div>`).join('')}</div>
+        ${S.newToken? `<div class="token-box"><b>${L('Mã của bạn — chỉ hiện một lần, hãy sao chép ngay:')}</b><code id="newToken">${esc(S.newToken)}</code><div class="top-actions">${copyBtn(S.newToken,L('Sao chép mã'))}${copyBtn('Bearer '+S.newToken,L('Sao chép “Bearer + mã”'))}<button class="btn xs ghost" type="button" data-hide-token>${L('Đã lưu, ẩn đi')}</button></div></div>` : ''}
+        <div class="list">${!S.tokens? `<div class="hint">${L('Đang tải…')}</div>` : !S.tokens.length? `<div class="hint">${L('Chưa có mã nào.')}</div>` :
+          S.tokens.map(t=>`<div class="row" style="grid-template-columns:auto minmax(0,1fr) auto"><span class="cat-ico" style="--c:var(--accent)">${ico('<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>')}</span><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="s">${L('Tạo {a} · dùng gần nhất {b}', {a:fmtTs(t.createdAt), b:fmtTs(t.lastUsed)})}</div></div><button class="btn xs danger" type="button" data-revoke-token="${esc(t.id)}">${L('Thu hồi')}</button></div>`).join('')}</div>
       </div>
       <div class="guide">
-        <b class="flabel">Thông tin để điền vào Phím tắt</b>
+        <b class="flabel">${L('Thông tin để điền vào Phím tắt')}</b>
         <dl class="kv1">
-          <div><dt>Xem tình hình (GET)</dt><dd><code>${esc(sumUrl)}</code>${copyBtn(sumUrl)}</dd></div>
-          ${canAdd? `<div><dt>Ghi chi tiêu (POST, JSON)</dt><dd><code>${esc(addUrl)}</code>${copyBtn(addUrl)}</dd></div>` : ''}
-          <div><dt>Tiêu đề (Headers)</dt><dd><code>Authorization</code> = <code>Bearer &lt;mã&gt;</code></dd></div>
-          ${canAdd? `<div><dt>Trường gửi đi</dt><dd><code>danh_muc</code> (vd: ăn uống, xăng, khám bệnh) · <code>so_tien</code> (250000 hoặc 250k) · <code>ghi_chu</code> · <code>loai</code> = chi / thu</dd></div>` : ''}
+          <div><dt>${L('Xem tình hình (GET)')}</dt><dd><code>${esc(sumUrl)}</code>${copyBtn(sumUrl)}</dd></div>
+          ${canAdd? `<div><dt>${L('Ghi chi tiêu (POST, JSON)')}</dt><dd><code>${esc(addUrl)}</code>${copyBtn(addUrl)}</dd></div>` : ''}
+          <div><dt>${L('Tiêu đề (Headers)')}</dt><dd><code>Authorization</code> = <code>Bearer &lt;${L('mã')}&gt;</code></dd></div>
+          ${canAdd? `<div><dt>${L('Trường gửi đi')}</dt><dd>${L('<code>danh_muc</code> (vd: ăn uống, xăng, khám bệnh) · <code>so_tien</code> (250000 hoặc 250k) · <code>ghi_chu</code> · <code>loai</code> = chi / thu')}</dd></div>` : ''}
         </dl>
-        <details class="howto" open><summary>Tạo phím tắt “Xem tình hình”</summary><ol>
-          <li>Mở ứng dụng <b>Phím tắt</b> › <b>+</b> › <b>Thêm tác vụ</b> › <b>Lấy nội dung của URL</b>; dán địa chỉ “Xem tình hình”.</li>
-          <li>Bấm <b>›</b> mở rộng › <b>Tiêu đề</b> › Thêm: khóa <code>Authorization</code>, giá trị <code>Bearer</code> + mã (dùng nút “Sao chép Bearer + mã”).</li>
-          <li>Thêm tác vụ <b>Hiển thị kết quả</b>. Đặt tên phím tắt “Tài chính hôm nay”.</li>
+        <details class="howto" open><summary>${L('Tạo phím tắt “Xem tình hình”')}</summary><ol>
+          <li>${L('Mở ứng dụng <b>Phím tắt</b> › <b>+</b> › <b>Thêm tác vụ</b> › <b>Lấy nội dung của URL</b>; dán địa chỉ “Xem tình hình”.')}</li>
+          <li>${L('Bấm <b>›</b> mở rộng › <b>Tiêu đề</b> › Thêm: khóa <code>Authorization</code>, giá trị <code>Bearer</code> + mã (dùng nút “Sao chép Bearer + mã”).')}</li>
+          <li>${L('Thêm tác vụ <b>Hiển thị kết quả</b>. Đặt tên phím tắt “Tài chính hôm nay”.')}</li>
         </ol></details>
-        ${canAdd? `<details class="howto"><summary>Tạo phím tắt “Ghi chi tiêu”</summary><ol>
-          <li><b>Danh sách</b>: nhập các mục Ăn uống, Đi lại, Giúp việc, Điện nước, Mua sắm, Khám cho con, Phí quản lý.</li>
-          <li><b>Chọn từ danh sách</b> (lời nhắc: “Chi cho gì?”).</li>
-          <li><b>Yêu cầu đầu vào</b> › Số (lời nhắc: “Số tiền?”); thêm một <b>Yêu cầu đầu vào</b> Văn bản cho ghi chú nếu muốn.</li>
-          <li><b>Lấy nội dung của URL</b>: dán địa chỉ “Ghi chi tiêu”, <b>Phương thức</b> POST, thêm tiêu đề Authorization như trên, <b>Nội dung yêu cầu</b> JSON với các trường <code>danh_muc</code> = Mục đã chọn, <code>so_tien</code> = Đầu vào đã cung cấp, <code>ghi_chu</code> = ghi chú.</li>
-          <li>Thêm <b>Hiển thị thông báo</b> với kết quả để thấy “Đã ghi … ₫”.</li>
+        ${canAdd? `<details class="howto"><summary>${L('Tạo phím tắt “Ghi chi tiêu”')}</summary><ol>
+          <li>${L('<b>Danh sách</b>: nhập các mục Ăn uống, Đi lại, Giúp việc, Điện nước, Mua sắm, Khám cho con, Phí quản lý.')}</li>
+          <li>${L('<b>Chọn từ danh sách</b> (lời nhắc: “Chi cho gì?”).')}</li>
+          <li>${L('<b>Yêu cầu đầu vào</b> › Số (lời nhắc: “Số tiền?”); thêm một <b>Yêu cầu đầu vào</b> Văn bản cho ghi chú nếu muốn.')}</li>
+          <li>${L('<b>Lấy nội dung của URL</b>: dán địa chỉ “Ghi chi tiêu”, <b>Phương thức</b> POST, thêm tiêu đề Authorization như trên, <b>Nội dung yêu cầu</b> JSON với các trường <code>danh_muc</code> = Mục đã chọn, <code>so_tien</code> = Đầu vào đã cung cấp, <code>ghi_chu</code> = ghi chú.')}</li>
+          <li>${L('Thêm <b>Hiển thị thông báo</b> với kết quả để thấy “Đã ghi … ₫”.')}</li>
         </ol></details>` : ''}
-        <details class="howto"><summary>Đặt widget ra màn hình chính</summary><ol>
-          <li>Chạm giữ màn hình chính › <b>Sửa</b> › <b>Thêm tiện ích</b> › <b>Phím tắt</b>.</li>
-          <li>Chọn cỡ widget, bấm <b>Thêm tiện ích</b>, rồi chạm vào widget để chọn phím tắt “Tài chính hôm nay” / “Ghi chi tiêu”.</li>
-          <li>Có thể thêm vào màn hình khóa hoặc Trung tâm điều khiển theo cách tương tự.</li>
+        <details class="howto"><summary>${L('Đặt widget ra màn hình chính')}</summary><ol>
+          <li>${L('Chạm giữ màn hình chính › <b>Sửa</b> › <b>Thêm tiện ích</b> › <b>Phím tắt</b>.')}</li>
+          <li>${L('Chọn cỡ widget, bấm <b>Thêm tiện ích</b>, rồi chạm vào widget để chọn phím tắt “Tài chính hôm nay” / “Ghi chi tiêu”.')}</li>
+          <li>${L('Có thể thêm vào màn hình khóa hoặc Trung tâm điều khiển theo cách tương tự.')}</li>
         </ol></details>
-        <p class="hint">Mở thẳng ô ghi chép trong ứng dụng: <code>${esc(origin)}/#ghi-chep</code> ${copyBtn(origin+'/#ghi-chep')}</p>
+        <p class="hint">${L('Mở thẳng ô ghi chép trong ứng dụng:')} <code>${esc(origin)}/#ghi-chep</code> ${copyBtn(origin+'/#ghi-chep')}</p>
       </div>
     </div>
   </div>`;
 }
 /* ---------- appearance: light / dark / follow device ---------- */
-const THEME_LABEL = {auto:'Theo thiết bị', light:'Sáng', dark:'Tối'};
+const THEME_LABEL = i18nize({auto:'Theo thiết bị', light:'Sáng', dark:'Tối'});
 const THEME_ICON = {
   auto: '<path d="M12 3a9 9 0 1 0 0 18z" fill="currentColor"/><circle cx="12" cy="12" r="9"/>',
   light: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
   dark: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
 };
 const themeMode = () => window.STCTheme? STCTheme.get() : 'auto';
-function paintThemeBtn(){ const b=$('#themeBtn'); if(!b) return; const m=themeMode(); b.querySelector('svg').innerHTML=THEME_ICON[m]; b.title=b.ariaLabel='Giao diện: '+THEME_LABEL[m]+' (bấm để đổi)'; }
+function paintThemeBtn(){ const b=$('#themeBtn'); if(!b) return; const m=themeMode(); b.querySelector('svg').innerHTML=THEME_ICON[m]; b.title=L('Giao diện: {mode} (bấm để đổi)', {mode:THEME_LABEL[m]}); b.setAttribute('aria-label', b.title); }
 function setTheme(m){ if(!window.STCTheme) return; STCTheme.set(m); paintThemeBtn(); }
 function viewAppearance(){
   const m = themeMode();
-  return `<div class="card section-gap"><div class="card-h"><h2>Giao diện</h2><span class="sub">Lưu riêng trên thiết bị này</span></div>
-    <div class="theme-pick" role="radiogroup" aria-label="Chế độ giao diện">${['auto','light','dark'].map(k=>`<button type="button" role="radio" aria-checked="${m===k}" data-theme-set="${k}" class="theme-opt ${m===k?'on':''}"><span class="theme-prev ${k}"><i></i><i></i><i></i></span><span class="theme-name">${ico(THEME_ICON[k])}${THEME_LABEL[k]}</span><span class="hint">${k==='auto'?'Tự đổi theo cài đặt sáng/tối của điện thoại, máy tính':k==='light'?'Nền sáng, chữ đậm — dễ đọc ban ngày':'Nền tối, dịu mắt — dùng buổi tối'}</span></button>`).join('')}</div>
-    <p class="hint" style="margin:10px 0 0">Có thể đổi nhanh bằng nút ${ico(THEME_ICON[m])} ở góc trên.</p></div>`;
+  return `<div class="card section-gap"><div class="card-h"><h2>${L('Giao diện')}</h2><span class="sub">${L('Lưu riêng trên thiết bị này')}</span></div>
+    <div class="theme-pick" role="radiogroup" aria-label="${L('Chế độ giao diện')}">${['auto','light','dark'].map(k=>`<button type="button" role="radio" aria-checked="${m===k}" data-theme-set="${k}" class="theme-opt ${m===k?'on':''}"><span class="theme-prev ${k}"><i></i><i></i><i></i></span><span class="theme-name">${ico(THEME_ICON[k])}${THEME_LABEL[k]}</span><span class="hint">${k==='auto'?L('Tự đổi theo cài đặt sáng/tối của điện thoại, máy tính'):k==='light'?L('Nền sáng, chữ đậm — dễ đọc ban ngày'):L('Nền tối, dịu mắt — dùng buổi tối')}</span></button>`).join('')}</div>
+    <p class="hint" style="margin:10px 0 0">${L('Có thể đổi nhanh bằng nút {icon} ở góc trên.', {icon:ico(THEME_ICON[m])})}</p></div>`;
 }
-const ROLE_LABEL = {owner:'Chủ sổ', member:'Thành viên', viewer:'Chỉ xem'};
-const ROLE_HINT = {owner:'Toàn quyền, quản lý thành viên và khôi phục dữ liệu', member:'Ghi chép và sửa dữ liệu', viewer:'Chỉ xem, không sửa được'};
+/* ---------- language ---------- */
+const LANG_HINT = {vi:'Mặc định', en:'Giao diện tiếng Anh', ja:'Giao diện tiếng Nhật'};
+function viewLanguage(){
+  const cur = I.get();
+  const others = ['Ngôn ngữ','Language','言語'].filter(x=>x!==L('Ngôn ngữ')).join(' · ');   // so anyone can find this card
+  return `<div class="card section-gap"><div class="card-h"><h2>${L('Ngôn ngữ')} <span class="muted" style="font-weight:500;font-size:13px">· ${others}</span></h2><span class="sub">${L('Lưu riêng trên thiết bị này')}</span></div>
+    <div class="lang-pick" role="radiogroup" aria-label="${L('Ngôn ngữ')}">${Object.entries(I.LANGS).map(([k,v])=>`<button type="button" role="radio" aria-checked="${cur===k}" data-lang-set="${k}" class="lang-opt ${cur===k?'on':''}" lang="${k}"><span class="lang-code">${v.short}</span><span class="lang-name">${v.name}</span><span class="hint">${L(LANG_HINT[k])}</span></button>`).join('')}</div>
+    <p class="hint" style="margin:10px 0 0">${L('Ngày tháng luôn hiển thị theo dạng DD/MM/YYYY ở mọi ngôn ngữ. Số tiền vẫn tính bằng đồng (₫).')}</p></div>`;
+}
+function setLang(v){ if(!I.LANGS[v] || v===I.get()) return; I.set(v); }
+function paintLangSel(){ const s=$('#langSel'); if(s) s.value = I.get(); const c=$('#langCode'); if(c) c.textContent = I.LANGS[I.get()].short; }
+const ROLE_LABEL = i18nize({owner:'Chủ sổ', member:'Thành viên', viewer:'Chỉ xem'});
+const ROLE_HINT = i18nize({owner:'Toàn quyền, quản lý thành viên và khôi phục dữ liệu', member:'Ghi chép và sửa dữ liệu', viewer:'Chỉ xem, không sửa được'});
 let restoreData=null;
 function viewMembers(){
   const me = window.FIN?.session(); if(!me) return '';
   const isOwner = me.role==='owner'; const list = S.members || [];
   return `<div class="grid g-2 section-gap">
-    <div class="card"><div class="card-h"><h2>Thành viên gia đình</h2><span class="sub">${list.length} tài khoản</span></div>
+    <div class="card"><div class="card-h"><h2>${L('Thành viên gia đình')}</h2><span class="sub">${L('{n} tài khoản', {n:list.length})}</span></div>
       <div class="list">${list.map(m=>`<div class="row member-row">
         <img class="avatar" data-uid="${esc(m.id)}" alt="" src="${BLANK}">
-        <div style="min-width:0"><div class="t">${esc(m.name)}${m.id===me.id?' <span class="chip acc">Bạn</span>':''}</div><div class="s">@${esc(m.username)} · ${ROLE_LABEL[m.role]||m.role}</div></div>
+        <div style="min-width:0"><div class="t">${esc(m.name)}${m.id===me.id?` <span class="chip acc">${L('Bạn')}</span>`:''}</div><div class="s">@${esc(m.username)} · ${ROLE_LABEL[m.role]||m.role}</div></div>
         <div class="member-actions">${isOwner && m.id!==me.id ? `
-          <label class="sr-only" for="role-${esc(m.id)}">Vai trò của ${esc(m.name)}</label>
+          <label class="sr-only" for="role-${esc(m.id)}">${L('Vai trò của {name}', {name:esc(m.name)})}</label>
           <select class="input sel-sm" id="role-${esc(m.id)}" data-member-role="${esc(m.id)}">${Object.entries(ROLE_LABEL).map(([k,l])=>`<option value="${k}" ${m.role===k?'selected':''}>${l}</option>`).join('')}</select>
-          <button class="btn sm" type="button" data-member-reset="${esc(m.id)}" data-name="${esc(m.name)}">Đặt lại mật khẩu</button>
-          <button class="btn sm danger" type="button" data-member-del="${esc(m.id)}" data-name="${esc(m.name)}">Xóa</button>` : ''}</div></div>`).join('')}</div>
+          <button class="btn sm" type="button" data-member-reset="${esc(m.id)}" data-name="${esc(m.name)}">${L('Đặt lại mật khẩu')}</button>
+          <button class="btn sm danger" type="button" data-member-del="${esc(m.id)}" data-name="${esc(m.name)}">${L('Xóa')}</button>` : ''}</div></div>`).join('')}</div>
       ${isOwner? `<form id="addMember" class="stack" style="gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)" novalidate>
-        <h3 class="flabel" style="font-size:13.5px">Thêm thành viên</h3>
+        <h3 class="flabel" style="font-size:13.5px">${L('Thêm thành viên')}</h3>
         <div class="row2">
-          <div class="field"><label for="am-name">Tên hiển thị</label><input class="input" id="am-name" autocomplete="off" placeholder="vd: Bà ngoại" maxlength="40"></div>
-          <div class="field"><label for="am-user">Tên đăng nhập</label><input class="input" id="am-user" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="vd: ba.ngoai"></div>
+          <div class="field"><label for="am-name">${L('Tên hiển thị')}</label><input class="input" id="am-name" autocomplete="off" placeholder="${L('vd: Bà ngoại')}" maxlength="40"></div>
+          <div class="field"><label for="am-user">${L('Tên đăng nhập')}</label><input class="input" id="am-user" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${L('vd: ba.ngoai')}"></div>
         </div>
         <div class="row2">
-          <div class="field"><label for="am-pass">Mật khẩu tạm</label><input class="input" id="am-pass" type="text" autocomplete="new-password" placeholder="Ít nhất 8 ký tự"></div>
-          <div class="field"><label for="am-role">Vai trò</label><select class="input" id="am-role"><option value="member">Thành viên</option><option value="viewer">Chỉ xem</option><option value="owner">Chủ sổ</option></select></div>
+          <div class="field"><label for="am-pass">${L('Mật khẩu tạm')}</label><input class="input" id="am-pass" type="text" autocomplete="new-password" placeholder="${L('Ít nhất 8 ký tự')}"></div>
+          <div class="field"><label for="am-role">${L('Vai trò')}</label><select class="input" id="am-role"><option value="member">${ROLE_LABEL.member}</option><option value="viewer">${ROLE_LABEL.viewer}</option><option value="owner">${ROLE_LABEL.owner}</option></select></div>
         </div>
-        <p class="hint" id="am-hint" style="margin:0">${ROLE_HINT.member}. Gửi tên đăng nhập và mật khẩu tạm cho người nhà; họ tự đổi mật khẩu sau khi đăng nhập.</p>
-        <div><button class="btn primary" type="submit">Thêm thành viên</button></div>
-      </form>` : `<p class="hint">Chỉ chủ sổ mới thêm hoặc xóa được thành viên.</p>`}
+        <p class="hint" id="am-hint" style="margin:0">${memberHint('member')}</p>
+        <div><button class="btn primary" type="submit">${L('Thêm thành viên')}</button></div>
+      </form>` : `<p class="hint">${L('Chỉ chủ sổ mới thêm hoặc xóa được thành viên.')}</p>`}
     </div>
     <div class="stack">
-      <div class="card"><div class="card-h"><h2>Đổi mật khẩu của bạn</h2></div>
+      <div class="card"><div class="card-h"><h2>${L('Đổi mật khẩu của bạn')}</h2></div>
         <form id="changePass" class="stack" style="gap:12px" novalidate>
           <input type="text" autocomplete="username" value="${esc(me.username)}" hidden readonly>
-          <div class="field"><label for="cp-cur">Mật khẩu hiện tại</label><input class="input" id="cp-cur" type="password" autocomplete="current-password"></div>
-          <div class="field"><label for="cp-new">Mật khẩu mới</label><input class="input" id="cp-new" type="password" autocomplete="new-password"><span class="hint">Ít nhất 8 ký tự. Các thiết bị khác sẽ bị đăng xuất.</span></div>
-          <div class="top-actions"><button class="btn" type="submit">Đổi mật khẩu</button><button class="btn ghost" type="button" id="logoutBtn2">Đăng xuất</button></div>
+          <div class="field"><label for="cp-cur">${L('Mật khẩu hiện tại')}</label><input class="input" id="cp-cur" type="password" autocomplete="current-password"></div>
+          <div class="field"><label for="cp-new">${L('Mật khẩu mới')}</label><input class="input" id="cp-new" type="password" autocomplete="new-password"><span class="hint">${L('Ít nhất 8 ký tự. Các thiết bị khác sẽ bị đăng xuất.')}</span></div>
+          <div class="top-actions"><button class="btn" type="submit">${L('Đổi mật khẩu')}</button><button class="btn ghost" type="button" id="logoutBtn2">${L('Đăng xuất')}</button></div>
         </form>
       </div>
-      ${isOwner? `<div class="card"><div class="card-h"><h2>Khôi phục từ bản sao lưu</h2></div>
-        <p class="hint" style="margin-top:0">Chọn tệp .json đã tải bằng nút “Sao lưu”. Toàn bộ dữ liệu hiện tại sẽ được thay thế; máy chủ tự lưu một bản trước khi khôi phục.</p>
-        <div class="field"><label for="restoreFile">Tệp sao lưu</label><input class="input" id="restoreFile" type="file" accept=".json,application/json"></div>
-        <div style="margin-top:10px"><button class="btn danger" type="button" id="restoreBtn" ${restoreData?'':'disabled'}>Khôi phục dữ liệu</button></div>
+      ${isOwner? `<div class="card"><div class="card-h"><h2>${L('Khôi phục từ bản sao lưu')}</h2></div>
+        <p class="hint" style="margin-top:0">${L('Chọn tệp .json đã tải bằng nút “Sao lưu”. Toàn bộ dữ liệu hiện tại sẽ được thay thế; máy chủ tự lưu một bản trước khi khôi phục.')}</p>
+        <div class="field"><label for="restoreFile">${L('Tệp sao lưu')}</label><input class="input" id="restoreFile" type="file" accept=".json,application/json"></div>
+        <div style="margin-top:10px"><button class="btn danger" type="button" id="restoreBtn" ${restoreData?'':'disabled'}>${L('Khôi phục dữ liệu')}</button></div>
       </div>` : ''}
     </div>
   </div>`;
 }
+const memberHint = role => L('{role}. Gửi tên đăng nhập và mật khẩu tạm cho người nhà; họ tự đổi mật khẩu sau khi đăng nhập.', {role:ROLE_HINT[role]});
 
 function viewLoading(){
-  return `<div class="loading"><div class="hero"><div class="eyebrow">Đang mở sổ…</div><div class="skel" style="width:46%;height:36px;margin-top:12px;opacity:.25"></div></div>
+  return `<div class="loading"><div class="hero"><div class="eyebrow">${L('Đang mở sổ…')}</div><div class="skel" style="width:46%;height:36px;margin-top:12px;opacity:.25"></div></div>
   <div class="grid g-4 section-gap">${'<div class="card"><div class="skel" style="width:50%"></div><div class="skel" style="width:70%;height:22px;margin-top:12px"></div></div>'.repeat(4)}</div></div>`;
 }
-function viewOffline(){ return `<div class="card"><div class="empty"><b>Chưa kết nối được máy chủ</b>Kiểm tra kết nối mạng rồi tải lại trang.</div></div>`; }
+function viewOffline(){ return `<div class="card"><div class="empty"><b>${L('Chưa kết nối được máy chủ')}</b>${L('Kiểm tra kết nối mạng rồi tải lại trang.')}</div></div>`; }
 
 /* =========================================================
    Render
@@ -1324,13 +1356,14 @@ function scheduleRender(){ aggCache.clear(); if(rafId) return; rafId=requestAnim
 function renderYearPicker(){
   const sel = $('#yearSel'); if(!sel) return;
   const from = firstYear(), to = lastYear(), key = from+'-'+to+'-'+curYear();
-  if(sel.dataset.range!==key){ let o=''; for(let k=to;k>=from;k--) o += `<option value="${k}">${k}${k===curYear()?' · năm nay':''}</option>`; sel.innerHTML=o; sel.dataset.range=key; }
+  const key2 = key+'-'+I.get();
+  if(sel.dataset.range!==key2){ let o=''; for(let k=to;k>=from;k--) o += `<option value="${k}">${k}${k===curYear()?' · '+L('năm nay'):''}</option>`; sel.innerHTML=o; sel.dataset.range=key2; }
   sel.value = String(S.year);
 }
 function yearBanner(){
   const cy = curYear(); if(S.year===cy) return '';
   const past = S.year<cy;
-  return `<div class="year-banner ${past?'past':'future'}">${ico(ICONS.cal)}<div><b>Đang xem năm ${S.year}${past?' (đã qua)':' (năm tới)'}</b><span>Thu chi, biểu đồ, nhận định và nhật ký hiển thị theo năm ${S.year}. Số dư quỹ, sổ tiết kiệm và danh mục đầu tư là số lũy kế hiện tại.</span></div><button class="btn sm" type="button" data-year-now>Về năm ${cy}</button></div>`;
+  return `<div class="year-banner ${past?'past':'future'}">${ico(ICONS.cal)}<div><b>${past? L('Đang xem năm {y} (đã qua)', {y:S.year}) : L('Đang xem năm {y} (năm tới)', {y:S.year})}</b><span>${L('Thu chi, biểu đồ, nhận định và nhật ký hiển thị theo năm {y}. Số dư quỹ, sổ tiết kiệm và danh mục đầu tư là số lũy kế hiện tại.', {y:S.year})}</span></div><button class="btn sm" type="button" data-year-now>${L('Về năm {y}', {y:cy})}</button></div>`;
 }
 function render(){
   const ae = document.activeElement;
@@ -1342,18 +1375,19 @@ function render(){
   $('#pageTitle').textContent = v.title;
   $('#brandYear').textContent = curYear();
   renderYearPicker();
-  $('#pageEyebrow').textContent = g==='overview'? 'Tổng quan · '+S.year : g==='invest'? 'Tiết kiệm & đầu tư' : GROUPS.find(x=>x.id===g).label;
+  $('#pageEyebrow').textContent = g==='overview'? L('Tổng quan')+' · '+S.year : GROUPS.find(x=>x.id===g).label;
   $('#nav').innerHTML = GROUPS.map(x=>`<a href="#${x.id}" ${x.id===g?'aria-current="page"':''}>${ico(ICONS[x.id])}${x.label}</a>${x.id==='invest'? `<div class="sub">${INVEST_TABS.map(([id,l])=>`<a href="#${id}" ${S.view===id?'aria-current="page"':''}>${l}</a>`).join('')}</div>`:''}`).join('');
   $('#tabbar').innerHTML = GROUPS.map(x=>`<a href="#${x.id}" ${x.id===g?'aria-current="page"':''}>${ico(ICONS[x.id])}${x.tab}</a>`).join('');
   const show = S.canWrite && S.conn!=='off';
   $('#addBtn').hidden = !show; $('#fab').hidden = !show;
   $('#syncDot').className = 'dot '+(S.conn==='on'?'on':S.conn==='off'?'off':'');
-  $('#syncText').textContent = S.conn==='on' ? (S.canWrite? 'Đã đồng bộ · cả nhà cùng xem' : 'Chỉ xem') : S.conn==='off' ? 'Chưa kết nối máy chủ' : 'Đang kết nối lại…';
+  $('#syncText').textContent = S.conn==='on' ? (S.canWrite? L('Đã đồng bộ · cả nhà cùng xem') : L('Chỉ xem')) : S.conn==='off' ? L('Chưa kết nối máy chủ') : L('Đang kết nối lại…');
+  const mr = $('#meBox .me-role'); if(mr) mr.textContent = ROLE_LABEL[window.FIN?.session()?.role]||'';
   let html;
   const ready = Object.values(S.loaded).every(Boolean);
   if(S.conn==='off' && !ready) html = viewOffline();
   else if(!ready) html = viewLoading();
-  else html = yearBanner() + (S.canWrite?'':'<div class="banner">Tài khoản của bạn chỉ có quyền xem. Nhờ chủ sổ đổi vai trò thành “Thành viên” để ghi chép.</div>') +
+  else html = yearBanner() + (S.canWrite?'':`<div class="banner">${L('Tài khoản của bạn chỉ có quyền xem. Nhờ chủ sổ đổi vai trò thành “Thành viên” để ghi chép.')}</div>`) +
     ({overview:viewOverview, spending:viewSpending, invest:viewInvest, deposits:viewDeposits, emergency:viewEmergency, kids:viewKids, settings:viewSettings}[S.view] || viewOverview)();
   $('#main').innerHTML = html;
   hydrateAvatars();
@@ -1363,7 +1397,7 @@ async function hydrateAvatars(){
   if(!user) return;
   const imgs = $$('img[data-uid]'); if(!imgs.length) return;
   try{ const ps = await user.profiles([...new Set(imgs.map(i=>i.dataset.uid))]);
-    imgs.forEach(i=>{ const p=ps[i.dataset.uid]; if(p){ i.src=p.avatarUrl; i.title=p.name||'Thành viên'; i.alt=p.name||''; } }); }catch(e){}
+    imgs.forEach(i=>{ const p=ps[i.dataset.uid]; if(p){ i.src=p.avatarUrl; i.title=p.name||L('Thành viên'); i.alt=p.name||''; } }); }catch(e){}
 }
 /* real-time interest ticker */
 setInterval(()=>{
@@ -1417,14 +1451,15 @@ main.addEventListener('click', async e=>{
   const t = e.target.closest('button, a, td[data-goto], tr[data-edit-lot], tr[data-product], tr[data-goto-row], tr[data-href], tr[data-set-year], path[data-seg]'); if(!t) return;
   const d = t.dataset;
   if(d.seg){ revealDonut(d.seg); return; }
-  if(d.copy!==undefined){ const txt=d.copy; try{ await navigator.clipboard.writeText(txt); toast('Đã sao chép'); }catch(e){ const r=document.createRange(); const el=t.parentElement.querySelector('code')||t; r.selectNodeContents(el); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); toast('Đã chọn sẵn, nhấn Ctrl+C để sao chép'); } return; }
+  if(d.copy!==undefined){ const txt=d.copy; try{ await navigator.clipboard.writeText(txt); toast(L('Đã sao chép')); }catch(e){ const r=document.createRange(); const el=t.parentElement.querySelector('code')||t; r.selectNodeContents(el); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); toast(L('Đã chọn sẵn, nhấn Ctrl+C để sao chép')); } return; }
   if('hideToken' in d){ S.newToken=null; render(); return; }
-  if(d.revokeToken){ if(!arm(t,'Bấm lần nữa để thu hồi')) return; t.disabled=true; try{ await FIN.revokeToken(d.revokeToken); S.tokens=S.tokens.filter(x=>x.id!==d.revokeToken); toast('Đã thu hồi mã. Phím tắt dùng mã này sẽ ngừng hoạt động.'); render(); }catch(err){ toast(errMsg(err)); t.disabled=false; } return; }
-  if(d.themeSet){ setTheme(d.themeSet); render(); toast('Giao diện: '+THEME_LABEL[d.themeSet]); return; }
+  if(d.revokeToken){ if(!arm(t,L('Bấm lần nữa để thu hồi'))) return; t.disabled=true; try{ await FIN.revokeToken(d.revokeToken); S.tokens=S.tokens.filter(x=>x.id!==d.revokeToken); toast(L('Đã thu hồi mã. Phím tắt dùng mã này sẽ ngừng hoạt động.')); render(); }catch(err){ toast(errMsg(err)); t.disabled=false; } return; }
+  if(d.themeSet){ setTheme(d.themeSet); render(); toast(L('Giao diện: {mode}', {mode:THEME_LABEL[d.themeSet]})); return; }
+  if(d.langSet){ setLang(d.langSet); return; }
   if(d.setYear){ setYear(+d.setYear); return; }
   if('yearNow' in d){ setYear(curYear()); return; }
   if(d.cmp){ S.cmpMode=d.cmp; render(); return; }
-  if(d.closeYear){ const yy=+d.closeYear; const est=navEstimate(yy); if(await saveCfg({navHistory:{...cfg().navHistory,[yy]:Math.round(est.total)}, navParts:{...(cfg().navParts||{}),[yy]:est.parts}})) toast(`Đã chốt tài sản ròng cuối năm ${yy}: ${vnd(est.total)} ₫`); return; }
+  if(d.closeYear){ const yy=+d.closeYear; const est=navEstimate(yy); if(await saveCfg({navHistory:{...cfg().navHistory,[yy]:Math.round(est.total)}, navParts:{...(cfg().navParts||{}),[yy]:est.parts}})) toast(L('Đã chốt tài sản ròng cuối năm {y}: {v} ₫', {y:yy, v:vnd(est.total)})); return; }
   if(d.insight){ S.openInsights.has(d.insight)? S.openInsights.delete(d.insight) : S.openInsights.add(d.insight); render(); return; }
   if(d.donut){ S.donutPeriod=d.donut; render(); return; }
   if(d.line){ S.lineHidden.has(d.line)? S.lineHidden.delete(d.line) : S.lineHidden.add(d.line); render(); return; }
@@ -1435,37 +1470,37 @@ main.addEventListener('click', async e=>{
   if(d.goto){ S.month=+d.goto; render(); $('#monthForm')?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
   if(d.gotoRow){ S.month=+d.gotoRow; render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
   if(d.editFund){ const x=S.fund.find(q=>q.id===d.editFund); if(x && S.canWrite) openTx({kind:x.fund, doc:x}); return; }
-  if(d.fixDiff){ const v=+d.fixDiff; const k='ff:savings:'; S.drafts[k+'type']= v>0?'out':'in'; S.drafts[k+'amt']=vnd(Math.abs(v)); S.drafts[k+'note']='Điều chỉnh cho khớp số dư sổ tại ngân hàng'; S.drafts[k+'date']=fmtDate(todayISO()); render(); const f=document.querySelector('[data-fund-form="savings"]'); f?.scrollIntoView({behavior:'smooth',block:'center'}); f?.querySelector('#ff-savings-note')?.focus(); toast('Đã điền sẵn bút toán điều chỉnh. Kiểm tra lại rồi bấm Ghi nhận.'); return; }
+  if(d.fixDiff){ const v=+d.fixDiff; const k='ff:savings:'; S.drafts[k+'type']= v>0?'out':'in'; S.drafts[k+'amt']=vnd(Math.abs(v)); S.drafts[k+'note']=L('Điều chỉnh cho khớp số dư sổ tại ngân hàng'); S.drafts[k+'date']=fmtDate(todayISO()); render(); const f=document.querySelector('[data-fund-form="savings"]'); f?.scrollIntoView({behavior:'smooth',block:'center'}); f?.querySelector('#ff-savings-note')?.focus(); toast(L('Đã điền sẵn bút toán điều chỉnh. Kiểm tra lại rồi bấm Ghi nhận.')); return; }
   if(d.editTx){ const x=S.tx.find(q=>q.id===d.editTx); if(x && S.canWrite) openTx({kind:x.kind==='income'?'income':'expense', doc:x}); return; }
   if('addDep' in d){ openDeposit(); return; }
   if(d.editDep){ if(S.canWrite) openDeposit(S.deposits.find(q=>q.id===d.editDep)); return; }
-  if(d.closeDep){ const dep=S.deposits.find(q=>q.id===d.closeDep); if(!dep) return; if(!arm(t,'Xác nhận tất toán')) return;
-    if(await write(()=>db.collection('deposits').doc(dep.id).set({...stripId(dep), status:'closed', closedAt:todayISO()}))) toast(`Đã đánh dấu tất toán sổ ${dep.bank||''} ${compact(dep.amount)}`); return; }
+  if(d.closeDep){ const dep=S.deposits.find(q=>q.id===d.closeDep); if(!dep) return; if(!arm(t,L('Xác nhận tất toán'))) return;
+    if(await write(()=>db.collection('deposits').doc(dep.id).set({...stripId(dep), status:'closed', closedAt:todayISO()}))) toast(L('Đã đánh dấu tất toán sổ {bank} {amt}', {bank:dep.bank||'', amt:compact(dep.amount)})); return; }
   if(d.reopenDep){ const dep=S.deposits.find(q=>q.id===d.reopenDep); if(!dep) return;
     const body={...stripId(dep), status:'active'}; delete body.closedAt;
-    if(await write(()=>db.collection('deposits').doc(dep.id).set(body))) toast('Đã mở lại sổ'); return; }
-  if(d.del){ if(!arm(t,'Bấm lần nữa để xóa')) return; const [col,id]=d.del.split('/'); t.disabled=true;
-    if(await write(()=>db.collection(col).doc(id).delete())) toast('Đã xóa'); else t.disabled=false; return; }
+    if(await write(()=>db.collection('deposits').doc(dep.id).set(body))) toast(L('Đã mở lại sổ')); return; }
+  if(d.del){ if(!arm(t,L('Bấm lần nữa để xóa'))) return; const [col,id]=d.del.split('/'); t.disabled=true;
+    if(await write(()=>db.collection(col).doc(id).delete())) toast(L('Đã xóa')); else t.disabled=false; return; }
   if('addLot' in d){ openLot(null, d.addLot||null); return; }
   if(d.editLot){ if(S.canWrite) openLot(S.vcbf.find(q=>q.id===d.editLot)); return; }
   if('addProduct' in d){ openProduct(); return; }
   if(d.editProduct){ openProduct(products().find(p=>p.id===d.editProduct)); return; }
   if(d.product && !d.addLot){ S.product=d.product; render(); $('#productDetail')?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
   if(d.savePrice){ const p = products().find(x=>x.id===d.savePrice); const v=parseDecimal($('#price-'+CSS.escape(d.savePrice)).value);
-    if(!p) return; if(!(v>0)){ toast('Giá chưa hợp lệ. Ví dụ: 13732,75'); return; }
+    if(!p) return; if(!(v>0)){ toast(L('Giá chưa hợp lệ. Ví dụ: 13732,75')); return; }
     const body = {...stripId(p), price:v, priceDate:todayISO()}; delete body._virtual; delete body.color;
-    if(await write(()=>db.collection('products').doc(p.id).set(body))) toast(`Đã cập nhật giá ${productLabel(p)}: ${fmtPrice(v)}`); return; }
+    if(await write(()=>db.collection('products').doc(p.id).set(body))) toast(L('Đã cập nhật giá {p}: {v}', {p:productLabel(p), v:fmtPrice(v)})); return; }
   if(d.moveSurplus){ const amt=+d.moveSurplus; const key=ymKey(S.year,S.month); t.disabled=true;
-    const ok = await write(()=>db.collection('fund').doc('surplus-'+key).set({date:lastDayISO(S.year,S.month), fund:'emergency', type:'in', amount:amt, note:`Thặng dư sinh hoạt T${S.month}/${S.year}`, ref:'surplus-'+key, by:S.meId, at:Date.now()}));
-    if(ok) toast(`Đã chuyển ${vnd(amt)} ₫ vào Quỹ khẩn cấp`); else t.disabled=false; return; }
+    const ok = await write(()=>db.collection('fund').doc('surplus-'+key).set({date:lastDayISO(S.year,S.month), fund:'emergency', type:'in', amount:amt, note:L('Thặng dư sinh hoạt {month}', {month:mYShort(S.month,S.year)}), ref:'surplus-'+key, by:S.meId, at:Date.now()}));
+    if(ok) toast(L('Đã chuyển {v} ₫ vào Quỹ khẩn cấp', {v:vnd(amt)})); else t.disabled=false; return; }
   if(t.id==='mReset'){ const key=ymKey(S.year,S.month); for(const k of Object.keys(S.drafts)) if(k.startsWith(`m:${key}:`)) delete S.drafts[k]; render(); return; }
   if(d.export){ exportData(d.export); return; }
   if(t.id==='logoutBtn2'){ FIN.logout(); return; }
   if(d.memberReset){ openResetPassword(d.memberReset, d.name); return; }
-  if(d.memberDel){ if(!arm(t,'Bấm lần nữa để xóa')) return; t.disabled=true;
-    try{ await FIN.removeMember(d.memberDel); toast('Đã xóa tài khoản '+d.name); }catch(err){ toast(errMsg(err)); t.disabled=false; } return; }
-  if(t.id==='restoreBtn' && restoreData){ if(!arm(t,'Bấm lần nữa để thay toàn bộ dữ liệu',5000)) return; t.disabled=true;
-    try{ const r = await FIN.importBackup(restoreData); toast(`Đã khôi phục ${r.imported} bản ghi`); restoreData=null; }catch(err){ toast(errMsg(err)); t.disabled=false; } return; }
+  if(d.memberDel){ if(!arm(t,L('Bấm lần nữa để xóa'))) return; t.disabled=true;
+    try{ await FIN.removeMember(d.memberDel); toast(L('Đã xóa tài khoản {name}', {name:d.name})); }catch(err){ toast(errMsg(err)); t.disabled=false; } return; }
+  if(t.id==='restoreBtn' && restoreData){ if(!arm(t,L('Bấm lần nữa để thay toàn bộ dữ liệu'),5000)) return; t.disabled=true;
+    try{ const r = await FIN.importBackup(restoreData); toast(L('Đã khôi phục {n} bản ghi', {n:r.imported})); restoreData=null; }catch(err){ toast(errMsg(err)); t.disabled=false; } return; }
 });
 const stripId = o => { const {id, ...rest} = o; return rest; };
 main.addEventListener('input', e=>{
@@ -1478,52 +1513,53 @@ main.addEventListener('submit', async e=>{
   const f = e.target; e.preventDefault();
   if(f.id==='monthForm'){ saveMonth(); return; }
   if(f.id==='tokenForm'){ const btn=f.querySelector('button[type=submit]'); btn.disabled=true;
-    try{ const r=await FIN.createToken($('#tk-name').value.trim()); S.newToken=r.token; S.tokens=[r.item, ...(S.tokens||[])]; render(); $('#shortcutCard')?.scrollIntoView({behavior:'smooth',block:'start'}); toast('Đã tạo mã. Sao chép ngay, mã chỉ hiện một lần.'); }
+    try{ const r=await FIN.createToken($('#tk-name').value.trim()); S.newToken=r.token; S.tokens=[r.item, ...(S.tokens||[])]; render(); $('#shortcutCard')?.scrollIntoView({behavior:'smooth',block:'start'}); toast(L('Đã tạo mã. Sao chép ngay, mã chỉ hiện một lần.')); }
     catch(err){ toast(errMsg(err)); } finally{ btn.disabled=false; } return; }
   if(f.dataset.fundForm){
     const fund = f.dataset.fundForm, k='ff:'+fund+':';
     const type = (f.querySelector('input[type=radio]:checked')||{}).value || 'in';
     const date = readDate(`ff-${fund}-date`); if(!date) return;
     const amt = parseAmount(f.querySelector(`#ff-${fund}-amt`).value); const note = f.querySelector(`#ff-${fund}-note`).value.trim();
-    if(!(amt>0)){ toast('Nhập số tiền lớn hơn 0'); f.querySelector(`#ff-${fund}-amt`).focus(); return; }
+    if(!(amt>0)){ toast(L('Nhập số tiền lớn hơn 0')); f.querySelector(`#ff-${fund}-amt`).focus(); return; }
     const btn=f.querySelector('button[type=submit]'); btn.disabled=true;
     const ok = await write(()=>db.collection('fund').add({date, fund, type, amount:amt, note, by:S.meId, at:Date.now()}));
     btn.disabled=false;
-    if(ok){ for(const x of ['amt','note','date','type']) delete S.drafts[k+x]; toast(`Đã ghi nhận: ${fundTypeLabel(fund,type)} ${vnd(amt)} ₫`); render(); }
+    if(ok){ for(const x of ['amt','note','date','type']) delete S.drafts[k+x]; toast(L('Đã ghi nhận: {type} {v} ₫', {type:fundTypeLabel(fund,type), v:vnd(amt)})); render(); }
     return;
   }
   if(f.id==='addMember'){
     const b = {name:$('#am-name').value.trim(), username:$('#am-user').value.trim(), password:$('#am-pass').value, role:$('#am-role').value};
-    if(!b.name){ toast('Nhập tên hiển thị'); $('#am-name').focus(); return; }
-    if(!/^[a-zA-Z0-9._-]{3,32}$/.test(b.username)){ toast('Tên đăng nhập gồm 3–32 ký tự không dấu'); $('#am-user').focus(); return; }
-    if(b.password.length<8){ toast('Mật khẩu tạm cần ít nhất 8 ký tự'); $('#am-pass').focus(); return; }
+    if(!b.name){ toast(L('Nhập tên hiển thị')); $('#am-name').focus(); return; }
+    if(!/^[a-zA-Z0-9._-]{3,32}$/.test(b.username)){ toast(L('Tên đăng nhập gồm 3–32 ký tự không dấu')); $('#am-user').focus(); return; }
+    if(b.password.length<8){ toast(L('Mật khẩu tạm cần ít nhất 8 ký tự')); $('#am-pass').focus(); return; }
     const btn=f.querySelector('button[type=submit]'); btn.disabled=true;
-    try{ const m = await FIN.addMember(b); toast(`Đã thêm ${m.name} (@${m.username})`); f.reset(); }catch(err){ toast(errMsg(err)); } finally{ btn.disabled=false; }
+    try{ const m = await FIN.addMember(b); toast(L('Đã thêm {name} (@{user})', {name:m.name, user:m.username})); f.reset(); }catch(err){ toast(errMsg(err)); } finally{ btn.disabled=false; }
     return;
   }
   if(f.id==='changePass'){
     const cur=$('#cp-cur').value, nw=$('#cp-new').value;
-    if(nw.length<8){ toast('Mật khẩu mới cần ít nhất 8 ký tự'); $('#cp-new').focus(); return; }
+    if(nw.length<8){ toast(L('Mật khẩu mới cần ít nhất 8 ký tự')); $('#cp-new').focus(); return; }
     const btn=f.querySelector('button[type=submit]'); btn.disabled=true;
-    try{ await FIN.updateMember(FIN.session().id, {currentPassword:cur, password:nw}); toast('Đã đổi mật khẩu'); f.reset(); }catch(err){ toast(errMsg(err)); } finally{ btn.disabled=false; }
+    try{ await FIN.updateMember(FIN.session().id, {currentPassword:cur, password:nw}); toast(L('Đã đổi mật khẩu')); f.reset(); }catch(err){ toast(errMsg(err)); } finally{ btn.disabled=false; }
   }
 });
 main.addEventListener('change', async e=>{
   const el = e.target; const d = el.dataset;
   if(el.type==='radio' && d.draft){ S.drafts[d.draft]=el.value; return; }
   if(d.memberRole){ try{ const m = await FIN.updateMember(d.memberRole, {role:el.value}); toast(`${m.name}: ${ROLE_LABEL[m.role]}`); }catch(err){ toast(errMsg(err)); render(); } return; }
-  if(el.id==='am-role'){ $('#am-hint').textContent = ROLE_HINT[el.value]+'. Gửi tên đăng nhập và mật khẩu tạm cho người nhà; họ tự đổi mật khẩu sau khi đăng nhập.'; return; }
+  if(el.id==='am-role'){ $('#am-hint').textContent = memberHint(el.value); return; }
   if(el.id==='restoreFile'){ restoreData=null; $('#restoreBtn').disabled=true; const file = el.files && el.files[0]; if(!file) return;
-    try{ const obj = JSON.parse(await file.text()); if(!obj || !Array.isArray(obj.tx)) throw new Error('bad'); restoreData=obj; $('#restoreBtn').disabled=false; toast(`Tệp hợp lệ: ${obj.tx.length} thu chi, ${(obj.fund||[]).length} biến động quỹ`); }
-    catch(err){ toast('Tệp này không phải bản sao lưu của Sổ Tài Chính.'); } return; }
+    try{ const obj = JSON.parse(await file.text()); if(!obj || !Array.isArray(obj.tx)) throw new Error('bad'); restoreData=obj; $('#restoreBtn').disabled=false; toast(L('Tệp hợp lệ: {a} thu chi, {b} biến động quỹ', {a:obj.tx.length, b:(obj.fund||[]).length})); }
+    catch(err){ toast(L('Tệp này không phải bản sao lưu của Sổ Tài Chính.')); } return; }
   if(!S.canWrite) return;
-  if(d.budget){ const v = el.value.trim()? parseAmount(el.value) : 0; if(isNaN(v)){ toast('Số tiền chưa đọc được. Ví dụ: 12tr'); return; }
-    if(await saveCfg({budgets:{...cfg().budgets, [d.budget]:v}})) toast('Đã lưu ngân sách '+CAT[d.budget].name); }
-  else if(d.cfgAmount){ const v=parseAmount(el.value); if(isNaN(v)){ toast('Số tiền chưa đọc được'); return; } if(await saveCfg({[d.cfgAmount]:v})) toast('Đã lưu'); }
-  else if(d.cfgText){ if(await saveCfg({[d.cfgText]:el.value.trim()})) toast('Đã lưu'); }
-  else if(d.cfgInt){ const v=parseInt(el.value,10); if(!(v>0)){ toast('Nhập số tháng lớn hơn 0'); return; } if(await saveCfg({[d.cfgInt]:v})) toast('Đã lưu mục tiêu'); }
-  else if(d.opening){ const v=parseAmount(el.value); if(isNaN(v)){ toast('Số tiền chưa đọc được'); return; } if(await saveCfg({openings:{...cfg().openings,[d.opening]:v}})) toast('Đã lưu số dư đầu kỳ'); }
-  else if(d.nav){ const v=parseAmount(el.value); if(isNaN(v)){ toast('Số tiền chưa đọc được'); return; } if(await saveCfg({navHistory:{...cfg().navHistory,[d.nav]:v}})) toast('Đã lưu NAV '+d.nav); }
+  const bad = () => toast(L('Số tiền chưa đọc được. Ví dụ: 12tr'));
+  if(d.budget){ const v = el.value.trim()? parseAmount(el.value) : 0; if(isNaN(v)){ bad(); return; }
+    if(await saveCfg({budgets:{...cfg().budgets, [d.budget]:v}})) toast(L('Đã lưu ngân sách {cat}', {cat:CAT[d.budget].name})); }
+  else if(d.cfgAmount){ const v=parseAmount(el.value); if(isNaN(v)){ bad(); return; } if(await saveCfg({[d.cfgAmount]:v})) toast(L('Đã lưu')); }
+  else if(d.cfgText){ if(await saveCfg({[d.cfgText]:el.value.trim()})) toast(L('Đã lưu')); }
+  else if(d.cfgInt){ const v=parseInt(el.value,10); if(!(v>0)){ toast(L('Nhập số tháng lớn hơn 0')); return; } if(await saveCfg({[d.cfgInt]:v})) toast(L('Đã lưu mục tiêu')); }
+  else if(d.opening){ const v=parseAmount(el.value); if(isNaN(v)){ bad(); return; } if(await saveCfg({openings:{...cfg().openings,[d.opening]:v}})) toast(L('Đã lưu số dư đầu kỳ')); }
+  else if(d.nav){ const v=parseAmount(el.value); if(isNaN(v)){ bad(); return; } if(await saveCfg({navHistory:{...cfg().navHistory,[d.nav]:v}})) toast(L('Đã lưu tài sản ròng {y}', {y:d.nav})); }
 });
 async function saveCfg(patch){
   const ref = db && db.doc('config/main');
@@ -1531,9 +1567,12 @@ async function saveCfg(patch){
   return write(()=>ref.set({...cfg(), ...patch}));
 }
 const quickKind = () => S.view==='emergency'? 'emergency' : S.view==='deposits'? 'savings' : 'expense';
-$('#themeBtn')?.addEventListener('click', ()=>{ const order=['auto','light','dark']; const next=order[(order.indexOf(themeMode())+1)%3]; setTheme(next); if(S.view==='settings') render(); toast('Giao diện: '+THEME_LABEL[next]); });
+$('#themeBtn')?.addEventListener('click', ()=>{ const order=['auto','light','dark']; const next=order[(order.indexOf(themeMode())+1)%3]; setTheme(next); if(S.view==='settings') render(); toast(L('Giao diện: {mode}', {mode:THEME_LABEL[next]})); });
 document.addEventListener('themechange', ()=>{ paintThemeBtn(); scheduleRender(); });
 paintThemeBtn();
+$('#langSel')?.addEventListener('change', e=>setLang(e.target.value));
+document.addEventListener('langchange', ()=>{ paintLangSel(); paintThemeBtn(); if(!$('#sheet').hidden) closeSheet(); render(); toast(L('Đã chuyển sang tiếng Việt')); });
+paintLangSel();
 $('#addBtn').addEventListener('click', ()=>openTx({kind:quickKind()}));
 $('#fab').addEventListener('click', ()=>openTx({kind:quickKind()}));
 window.addEventListener('beforeunload', e=>{ if(Object.keys(S.drafts).some(k=>k.startsWith('m:'))){ const dv=monthDraftValues(S.year,S.month); if(dv._dirty){ e.preventDefault(); e.returnValue=''; } } });
@@ -1553,32 +1592,31 @@ $('#sheet').addEventListener('click', e=>{ if(e.target.closest('[data-close]')) 
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('#sheet').hidden) closeSheet(); });
 function armDelete(btn, fn){
   btn.addEventListener('click', async ()=>{
-    if(!btn.classList.contains('armed')){ btn.classList.add('armed'); btn.textContent='Bấm lần nữa để xóa'; setTimeout(()=>{ btn.classList.remove('armed'); btn.textContent='Xóa'; },4000); return; }
+    if(!btn.classList.contains('armed')){ btn.classList.add('armed'); btn.textContent=L('Bấm lần nữa để xóa'); setTimeout(()=>{ btn.classList.remove('armed'); btn.textContent=L('Xóa'); },4000); return; }
     btn.disabled=true; if(await fn()) closeSheet(); else btn.disabled=false;
   });
 }
 function bindAmount(input, prev){ const upd = ()=>{ prev.innerHTML = amountPreview(input.value); }; input.addEventListener('input', upd); upd(); }
-const closeBtn = () => `<button type="button" class="icon-btn" data-close aria-label="Đóng">${ico(ICONS.close)}</button>`;
+const closeBtn = () => `<button type="button" class="icon-btn" data-close aria-label="${L('Đóng')}">${ico(ICONS.close)}</button>`;
 
 function openResetPassword(id, name){
   openSheet(`<form id="resetForm" novalidate style="display:flex;flex-direction:column;gap:14px">
-    <div class="panel-h"><h2>Đặt lại mật khẩu</h2>${closeBtn()}</div>
-    <p class="hint" style="margin:0">Đặt mật khẩu tạm cho <b></b>. Tài khoản này sẽ bị đăng xuất khỏi mọi thiết bị.</p>
-    <div class="field"><label for="rp-pass">Mật khẩu tạm mới</label><input class="input" id="rp-pass" type="text" autocomplete="new-password" placeholder="Ít nhất 8 ký tự"></div>
-    <div class="panel-actions"><button type="button" class="btn" data-close>Hủy</button><button type="submit" class="btn primary">Đặt lại</button></div>
+    <div class="panel-h"><h2>${L('Đặt lại mật khẩu')}</h2>${closeBtn()}</div>
+    <p class="hint" style="margin:0">${L('Đặt mật khẩu tạm cho {name}. Tài khoản này sẽ bị đăng xuất khỏi mọi thiết bị.', {name:`<b>${esc(name)}</b>`})}</p>
+    <div class="field"><label for="rp-pass">${L('Mật khẩu tạm mới')}</label><input class="input" id="rp-pass" type="text" autocomplete="new-password" placeholder="${L('Ít nhất 8 ký tự')}"></div>
+    <div class="panel-actions"><button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${L('Đặt lại')}</button></div>
   </form>`);
-  $('#resetForm .hint b').textContent = name;
   $('#resetForm').addEventListener('submit', async e=>{ e.preventDefault();
-    const p=$('#rp-pass').value; if(p.length<8){ toast('Mật khẩu cần ít nhất 8 ký tự'); return; }
+    const p=$('#rp-pass').value; if(p.length<8){ toast(L('Mật khẩu cần ít nhất 8 ký tự')); return; }
     const btn=e.target.querySelector('button[type=submit]'); btn.disabled=true;
-    try{ await FIN.updateMember(id,{password:p}); toast('Đã đặt lại mật khẩu cho '+name); closeSheet(); }catch(err){ toast(errMsg(err)); btn.disabled=false; }
+    try{ await FIN.updateMember(id,{password:p}); toast(L('Đã đặt lại mật khẩu cho {name}', {name})); closeSheet(); }catch(err){ toast(errMsg(err)); btn.disabled=false; }
   });
 }
 
 function openTx({kind='expense', doc=null}={}){
   const isEdit = !!doc;
   const st = { kind, cat: doc?.cat || (kind==='income'?'income':'food'), type: doc?.type || 'in' };
-  const kinds = [['expense','Chi tiêu'],['income','Thu nhập'],['emergency','Quỹ khẩn cấp'],['savings','Quỹ tiết kiệm']];
+  const kinds = [['expense',L('Chi tiêu')],['income',L('Thu nhập')],['emergency',L('Quỹ khẩn cấp')],['savings',L('Quỹ tiết kiệm')]];
   const draw = ()=>{
     const isFund = st.kind==='emergency'||st.kind==='savings';
     if(isFund && !FUND_TYPES[st.kind][st.type]) st.type='in';
@@ -1586,23 +1624,24 @@ function openTx({kind='expense', doc=null}={}){
     $('#catPills').innerHTML = st.kind==='expense' ? CATS.map(c=>`<button type="button" class="pill" data-c="${c.id}" aria-pressed="${st.cat===c.id}"><i class="swatch" style="background:var(--c-${c.id})"></i>${c.name}</button>`).join('')
       : st.kind==='income' ? INCOME_CATS.map(c=>`<button type="button" class="pill" data-c="${c.id}" aria-pressed="${st.cat===c.id}">${c.name}</button>`).join('')
       : Object.entries(FUND_TYPES[st.kind]).map(([k,l])=>`<button type="button" class="pill" data-t="${k}" aria-pressed="${st.type===k}">${l}</button>`).join('');
-    $('#catLabel').textContent = isFund? 'Loại giao dịch' : 'Danh mục';
+    $('#catLabel').textContent = isFund? L('Loại giao dịch') : L('Danh mục');
   };
+  const quick = {vi:['50k','100k','200k','500k','1tr','5tr'], en:['50k','100k','200k','500k','1m','5m'], ja:['5万','10万','20万','50万','100万','500万']}[I.get()];
   openSheet(`<form id="txForm" novalidate style="display:flex;flex-direction:column;gap:16px">
-    <div class="panel-h"><h2>${isEdit?'Sửa ghi chép':'Ghi chép nhanh'}</h2>${closeBtn()}</div>
-    <div class="seg" id="kindSeg" role="group" aria-label="Loại"></div>
-    <div class="field"><label for="f-amt">Số tiền</label>
+    <div class="panel-h"><h2>${isEdit?L('Sửa ghi chép'):L('Ghi chép nhanh')}</h2>${closeBtn()}</div>
+    <div class="seg" id="kindSeg" role="group" aria-label="${L('Loại')}"></div>
+    <div class="field"><label for="f-amt">${L('Số tiền')}</label>
       <div class="amt-box"><input id="f-amt" autocomplete="off" inputmode="text" placeholder="0" value="${doc? vnd(doc.amount):''}"><span>₫</span></div>
       <div class="amt-prev" id="f-prev"></div>
-      <div class="pills" id="quick">${['50k','100k','200k','500k','1tr','5tr'].map(q=>`<button type="button" class="pill" data-q="${q}">+${q}</button>`).join('')}</div>
+      <div class="pills" id="quick">${quick.map(q=>`<button type="button" class="pill" data-q="${q}">+${q}</button>`).join('')}</div>
     </div>
-    <div class="field"><span class="flabel" id="catLabel">Danh mục</span><div class="pills" id="catPills"></div></div>
+    <div class="field"><span class="flabel" id="catLabel">${L('Danh mục')}</span><div class="pills" id="catPills"></div></div>
     <div class="row2">
-      <div class="field"><label for="f-date">Ngày</label>${dateInput('f-date', doc?.date || defaultDateISO())}</div>
-      <div class="field"><label for="f-note">Ghi chú</label><input class="input" id="f-note" value="${esc(doc?.note||'')}" placeholder="vd: Đi chợ cuối tuần"></div>
+      <div class="field"><label for="f-date">${L('Ngày')}</label>${dateInput('f-date', doc?.date || defaultDateISO())}</div>
+      <div class="field"><label for="f-note">${L('Ghi chú')}</label><input class="input" id="f-note" value="${esc(doc?.note||'')}" placeholder="${L('vd: Đi chợ cuối tuần')}"></div>
     </div>
-    ${!isEdit? '<p class="hint" style="margin:0">Khoản ghi lẻ được cộng vào tổng tháng tương ứng trong mục Chi tiêu.</p>':''}
-    <div class="panel-actions">${isEdit?'<button type="button" class="btn danger" id="delBtn">Xóa</button><span class="spacer"></span>':''}<button type="button" class="btn" data-close>Hủy</button><button type="submit" class="btn primary">${isEdit?'Lưu thay đổi':'Lưu'}</button></div>
+    ${!isEdit? `<p class="hint" style="margin:0">${L('Khoản ghi lẻ được cộng vào tổng tháng tương ứng trong mục Chi tiêu.')}</p>`:''}
+    <div class="panel-actions">${isEdit?`<button type="button" class="btn danger" id="delBtn">${L('Xóa')}</button><span class="spacer"></span>`:''}<button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${isEdit?L('Lưu thay đổi'):L('Lưu')}</button></div>
   </form>`);
   draw();
   const amt=$('#f-amt'); bindAmount(amt, $('#f-prev'));
@@ -1611,7 +1650,7 @@ function openTx({kind='expense', doc=null}={}){
   $('#quick').addEventListener('click', e=>{ const b=e.target.closest('button[data-q]'); if(!b) return; const cur=amt.value.trim(); amt.value = cur? cur.replace(/\./g,'')+'+'+b.dataset.q : b.dataset.q; amt.dispatchEvent(new Event('input')); amt.focus(); });
   $('#txForm').addEventListener('submit', async e=>{
     e.preventDefault();
-    const a = parseAmount(amt.value); if(!(a>0)){ toast('Nhập số tiền lớn hơn 0'); amt.focus(); return; }
+    const a = parseAmount(amt.value); if(!(a>0)){ toast(L('Nhập số tiền lớn hơn 0')); amt.focus(); return; }
     const date = readDate('f-date'); if(!date) return; const note=$('#f-note').value.trim();
     const isFund = st.kind==='emergency'||st.kind==='savings';
     const btn = e.submitter || $('#txForm button[type=submit]'); btn.disabled=true;
@@ -1619,39 +1658,26 @@ function openTx({kind='expense', doc=null}={}){
     if(isFund){
       const body = {date, fund:st.kind, type:st.type, amount:a, note, by: doc?.by ?? S.meId, at: doc?.at || Date.now()}; if(doc?.ref) body.ref=doc.ref;
       ok = await write(()=> doc? db.collection('fund').doc(doc.id).set(body) : db.collection('fund').add(body));
-      if(ok) toast(`${isEdit?'Đã sửa':'Đã lưu'}: ${FUNDS[st.kind].name} ${st.type==='out'?'−':'+'}${vnd(a)} ₫`);
+      if(ok) toast(`${isEdit?L('Đã sửa'):L('Đã lưu')}: ${FUNDS[st.kind].name} ${st.type==='out'?'−':'+'}${vnd(a)} ₫`);
     } else {
       const body = {date, kind:st.kind, cat:st.cat, amount:a, note, by: doc?.by ?? S.meId, at: doc?.at || Date.now()}; if(doc?.src) body.src=doc.src; if(doc?.expr) body.expr='';
       ok = await write(()=> doc? db.collection('tx').doc(doc.id).set(body) : db.collection('tx').add(body));
-      if(ok) toast(`${isEdit?'Đã sửa':'Đã lưu'}: ${st.kind==='income'?INC[st.cat].name+' +':CAT[st.cat].name+' −'}${vnd(a)} ₫`);
+      if(ok) toast(`${isEdit?L('Đã sửa'):L('Đã lưu')}: ${st.kind==='income'?INC[st.cat].name+' +':CAT[st.cat].name+' −'}${vnd(a)} ₫`);
     }
     if(ok) closeSheet(); else btn.disabled=false;
   });
-  if(isEdit) armDelete($('#delBtn'), async ()=>{ const col = (st.kind==='emergency'||st.kind==='savings')?'fund':'tx'; const ok = await write(()=>db.collection(col).doc(doc.id).delete()); if(ok) toast('Đã xóa ghi chép'); return ok; });
+  if(isEdit) armDelete($('#delBtn'), async ()=>{ const col = (st.kind==='emergency'||st.kind==='savings')?'fund':'tx'; const ok = await write(()=>db.collection(col).doc(doc.id).delete()); if(ok) toast(L('Đã xóa ghi chép')); return ok; });
 }
 
-/** Vietnamese reading of an amount, e.g. 2.500.000.000 → "Hai tỷ năm trăm triệu đồng". */
-function readVND(n){
-  n = Math.floor(+n||0); if(!n) return 'Không đồng';
-  const D = ['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
-  const read3 = (x, full) => { const h=Math.floor(x/100), t=Math.floor(x%100/10), u=x%10, w=[];
-    if(full || h) w.push(D[h]+' trăm');
-    if(t===0){ if(u) w.push(((full||h)?'lẻ ':'')+D[u]); }
-    else if(t===1) w.push('mười'+(u===5?' lăm':u?' '+D[u]:''));
-    else w.push(D[t]+' mươi'+(u===1?' mốt':u===5?' lăm':u===4?' tư':u?' '+D[u]:''));
-    return w.join(' '); };
-  const groups=[]; while(n>0){ groups.push(n%1000); n=Math.floor(n/1000); }
-  const unit = i => ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ'][i];
-  const out=[]; for(let i=groups.length-1;i>=0;i--){ const g=groups[i]; if(!g) continue; out.push(read3(g, i<groups.length-1) + (unit(i)?' '+unit(i):'')); }
-  const s = out.join(' ').replace(/\s+/g,' ').trim(); return s.charAt(0).toUpperCase()+s.slice(1)+' đồng';
-}
+/** Amount in words in the current language, e.g. 2.500.000.000 → "Hai tỷ năm trăm triệu đồng". */
+const readVND = n => I.words(n);
 /** Exact amount field: digits only, thousands separators added while typing, amount read out in words. */
 function bindExactAmount(input, prev){
   const upd = ()=>{ const digits = input.value.replace(/\D/g,'').replace(/^0+(?=\d)/,'').slice(0,16);
     const pos = input.selectionStart, before = input.value.length;
-    input.value = digits? nf.format(+digits) : '';
+    input.value = digits? I.int(+digits) : '';
     try{ const p = Math.max(0, pos + (input.value.length-before)); input.setSelectionRange(p,p); }catch(e){}
-    prev.innerHTML = digits? `= ${input.value} ₫ · <span class="words">${esc(readVND(+digits))}</span>` : 'Nhập đầy đủ số tiền đến hàng đơn vị, ví dụ 2.500.000.000'; prev.classList.remove('bad'); };
+    prev.innerHTML = digits? `= ${input.value} ₫ · <span class="words">${esc(readVND(+digits))}</span>` : L('Nhập đầy đủ số tiền đến hàng đơn vị, ví dụ {ex}', {ex:I.int(2500000000)}); prev.classList.remove('bad'); };
   input.addEventListener('input', upd); upd();
 }
 const readExactAmount = el => { const d = String(el.value).replace(/\D/g,''); return d? +d : NaN; };
@@ -1664,35 +1690,35 @@ function openDeposit(doc=null){
   const suggested0 = doc? addMonths(doc.start, +doc.term||1) : addMonths(defaultDateISO(), 12);
   let matManual = !!(doc?.maturity && doc.maturity!==suggested0);
   openSheet(`<form id="depForm" novalidate style="display:flex;flex-direction:column;gap:14px">
-    <div class="panel-h"><h2>${doc?'Sửa sổ tiết kiệm':'Thêm sổ tiết kiệm'}</h2>${closeBtn()}</div>
+    <div class="panel-h"><h2>${doc?L('Sửa sổ tiết kiệm'):L('Thêm sổ tiết kiệm')}</h2>${closeBtn()}</div>
     <div class="row2">
-      <div class="field"><label for="d-bank">Ngân hàng</label>
-        <div class="bank-pick"><span id="d-bank-badge">${bankBadge(doc?.bank||'vcb','sm')}</span><select class="input" id="d-bank"><option value="" ${!doc?'selected':''} disabled>Chọn ngân hàng…</option>${opts}<option value="__other" ${other?'selected':''}>Ngân hàng khác (tự nhập)…</option></select></div>
-        <input class="input" id="d-bank-other" value="${other?esc(doc.bank):''}" placeholder="Tên ngân hàng" ${other?'':'hidden'} style="margin-top:6px" maxlength="40">
+      <div class="field"><label for="d-bank">${L('Ngân hàng')}</label>
+        <div class="bank-pick"><span id="d-bank-badge">${bankBadge(doc?.bank||'vcb','sm')}</span><select class="input" id="d-bank"><option value="" ${!doc?'selected':''} disabled>${L('Chọn ngân hàng…')}</option>${opts}<option value="__other" ${other?'selected':''}>${L('Ngân hàng khác (tự nhập)…')}</option></select></div>
+        <input class="input" id="d-bank-other" value="${other?esc(doc.bank):''}" placeholder="${L('Tên ngân hàng')}" ${other?'':'hidden'} style="margin-top:6px" maxlength="40">
         <span class="hint" id="d-bank-full">${curKey? esc(BANKS[curKey].full) : ''}</span></div>
-      <div class="field"><label for="d-label">Tên sổ</label><input class="input" id="d-label" value="${esc(doc?.label||'')}" placeholder="vd: Sổ học phí"></div>
+      <div class="field"><label for="d-label">${L('Tên sổ')}</label><input class="input" id="d-label" value="${esc(doc?.label||'')}" placeholder="${L('vd: Sổ học phí')}"></div>
     </div>
-    <div class="field"><label for="d-amt">Số tiền gửi (₫)</label><div class="amt-box"><input id="d-amt" inputmode="numeric" autocomplete="off" value="${doc?vnd(doc.amount):''}" placeholder="2.500.000.000"><span>₫</span></div><div class="amt-prev" id="d-prev"></div></div>
+    <div class="field"><label for="d-amt">${L('Số tiền gửi (₫)')}</label><div class="amt-box"><input id="d-amt" inputmode="numeric" autocomplete="off" value="${doc?vnd(doc.amount):''}" placeholder="${I.int(2500000000)}"><span>₫</span></div><div class="amt-prev" id="d-prev"></div></div>
     <div class="row2">
-      <div class="field"><label for="d-term">Kỳ hạn</label><select class="input" id="d-term">${[1,2,3,6,9,12,13,15,18,24,36,48,60].map(t=>`<option value="${t}" ${(+doc?.term||12)===t?'selected':''}>${t} tháng</option>`).join('')}</select></div>
-      <div class="field"><label for="d-rate">Lãi suất (%/năm)</label><input class="input num" id="d-rate" inputmode="decimal" value="${doc? String(doc.rate).replace('.',','):''}" placeholder="vd: 4,6"></div>
+      <div class="field"><label for="d-term">${L('Kỳ hạn')}</label><select class="input" id="d-term">${[1,2,3,6,9,12,13,15,18,24,36,48,60].map(t=>`<option value="${t}" ${(+doc?.term||12)===t?'selected':''}>${L('{n} tháng', {n:t})}</option>`).join('')}</select></div>
+      <div class="field"><label for="d-rate">${L('Lãi suất (%/năm)')}</label><input class="input num" id="d-rate" inputmode="decimal" value="${doc? I.decIn(doc.rate):''}" placeholder="${L('vd: 4,6')}"></div>
     </div>
     <div class="row2">
-      <div class="field"><label for="d-start">Ngày gửi</label>${dateInput('d-start', doc?.start||defaultDateISO())}</div>
-      <div class="field"><label for="d-mat">Ngày đáo hạn</label>${dateInput('d-mat', doc? depMaturity(doc) : suggested0)}
+      <div class="field"><label for="d-start">${L('Ngày gửi')}</label>${dateInput('d-start', doc?.start||defaultDateISO())}</div>
+      <div class="field"><label for="d-mat">${L('Ngày đáo hạn')}</label>${dateInput('d-mat', doc? depMaturity(doc) : suggested0)}
         <span class="hint" id="d-mat-hint"></span></div>
     </div>
     <div class="row2">
-      <div class="field"><label for="d-status">Trạng thái</label><select class="input" id="d-status"><option value="active" ${!isClosed(doc||{})?'selected':''}>Đang gửi</option><option value="closed" ${isClosed(doc||{})?'selected':''}>Đã tất toán</option></select></div>
-      <div class="field"><label for="d-note">Ghi chú / nguồn</label><input class="input" id="d-note" value="${esc(doc?.note||'')}" placeholder="vd: Từ lương thưởng Tết"></div>
+      <div class="field"><label for="d-status">${L('Trạng thái')}</label><select class="input" id="d-status"><option value="active" ${!isClosed(doc||{})?'selected':''}>${L('Đang gửi')}</option><option value="closed" ${isClosed(doc||{})?'selected':''}>${L('Đã tất toán')}</option></select></div>
+      <div class="field"><label for="d-note">${L('Ghi chú / nguồn')}</label><input class="input" id="d-note" value="${esc(doc?.note||'')}" placeholder="${L('vd: Từ lương thưởng Tết')}"></div>
     </div>
-    <div class="panel-actions">${doc?'<button type="button" class="btn danger" id="delBtn">Xóa</button><span class="spacer"></span>':''}<button type="button" class="btn" data-close>Hủy</button><button type="submit" class="btn primary">Lưu sổ</button></div>
+    <div class="panel-actions">${doc?`<button type="button" class="btn danger" id="delBtn">${L('Xóa')}</button><span class="spacer"></span>`:''}<button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${L('Lưu sổ')}</button></div>
   </form>`);
   bindExactAmount($('#d-amt'),$('#d-prev'));
   const bankSel = $('#d-bank');
   const updBank = ()=>{ const v = bankSel.value; const isOther = v==='__other'; $('#d-bank-other').hidden = !isOther;
-    $('#d-bank-badge').innerHTML = isOther? bankBadge($('#d-bank-other').value||'Khác','sm') : v? bankBadge(v,'sm') : '';
-    $('#d-bank-full').textContent = BANKS[v]? BANKS[v].full : isOther? 'Nhập tên ngân hàng chưa có trong danh sách' : '';
+    $('#d-bank-badge').innerHTML = isOther? bankBadge($('#d-bank-other').value||L('Khác'),'sm') : v? bankBadge(v,'sm') : '';
+    $('#d-bank-full').textContent = BANKS[v]? BANKS[v].full : isOther? L('Nhập tên ngân hàng chưa có trong danh sách') : '';
     if(isOther && document.activeElement===bankSel) $('#d-bank-other').focus(); };
   bankSel.addEventListener('change', updBank); $('#d-bank-other').addEventListener('input', updBank); updBank();
   // Maturity: suggested from the term, but the user's own date wins once edited.
@@ -1701,8 +1727,8 @@ function openDeposit(doc=null){
     const sug = suggest(), cur = parseDMY($('#d-mat').value);
     if(!matManual && sug) $('#d-mat').value = fmtDate(sug);
     const shown = parseDMY($('#d-mat').value);
-    $('#d-mat-hint').innerHTML = !sug? '' : shown===sug ? `Theo kỳ hạn ${$('#d-term').value} tháng. Có thể sửa theo ngày thực tế trên sổ.`
-      : `Theo kỳ hạn: <b class="num">${fmtDate(sug)}</b> · <button type="button" class="btn xs ghost" id="d-mat-reset">Dùng ngày này</button>`;
+    $('#d-mat-hint').innerHTML = !sug? '' : shown===sug ? L('Theo kỳ hạn {n} tháng. Có thể sửa theo ngày thực tế trên sổ.', {n:$('#d-term').value})
+      : `${L('Theo kỳ hạn:')} <b class="num">${fmtDate(sug)}</b> · <button type="button" class="btn xs ghost" id="d-mat-reset">${L('Dùng ngày này')}</button>`;
     $('#d-mat-reset')?.addEventListener('click', ()=>{ matManual=false; updMat(); });
   };
   $('#d-start').addEventListener('input', updMat); $('#d-term').addEventListener('change', updMat);
@@ -1710,100 +1736,100 @@ function openDeposit(doc=null){
   updMat();
   $('#depForm').addEventListener('submit', async e=>{ e.preventDefault();
     const bank = bankSel.value==='__other' ? $('#d-bank-other').value.trim() : bankSel.value;
-    if(!bank){ toast('Chọn ngân hàng'); bankSel.focus(); return; }
-    const amount = readExactAmount($('#d-amt')); if(!(amount>0)){ toast('Nhập đầy đủ số tiền gửi'); $('#d-amt').focus(); return; }
-    const rate = parseDecimal($('#d-rate').value); if(!(rate>=0)){ toast('Nhập lãi suất, ví dụ 4,6'); $('#d-rate').focus(); return; }
+    if(!bank){ toast(L('Chọn ngân hàng')); bankSel.focus(); return; }
+    const amount = readExactAmount($('#d-amt')); if(!(amount>0)){ toast(L('Nhập đầy đủ số tiền gửi')); $('#d-amt').focus(); return; }
+    const rate = parseDecimal($('#d-rate').value); if(!(rate>=0)){ toast(L('Nhập lãi suất, ví dụ 4,6')); $('#d-rate').focus(); return; }
     const start = readDate('d-start'); if(!start) return;
     const maturity = readDate('d-mat'); if(!maturity) return;
-    if(maturity<=start){ toast('Ngày đáo hạn phải sau ngày gửi'); $('#d-mat').setAttribute('aria-invalid','true'); $('#d-mat').focus(); return; }
+    if(maturity<=start){ toast(L('Ngày đáo hạn phải sau ngày gửi')); $('#d-mat').setAttribute('aria-invalid','true'); $('#d-mat').focus(); return; }
     const status = $('#d-status').value;
     const body={bank, label:$('#d-label').value.trim(), amount, rate, term:+$('#d-term').value, start, maturity, status, note:$('#d-note').value.trim(), at:doc?.at||Date.now()};
     if(status==='closed') body.closedAt = doc?.closedAt || todayISO();
-    if(await write(()=> doc? db.collection('deposits').doc(doc.id).set(body) : db.collection('deposits').add(body))){ toast('Đã lưu sổ tiết kiệm'); closeSheet(); }
+    if(await write(()=> doc? db.collection('deposits').doc(doc.id).set(body) : db.collection('deposits').add(body))){ toast(L('Đã lưu sổ tiết kiệm')); closeSheet(); }
   });
-  if(doc) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('deposits').doc(doc.id).delete()); if(ok) toast('Đã xóa sổ'); return ok; });
+  if(doc) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('deposits').doc(doc.id).delete()); if(ok) toast(L('Đã xóa sổ')); return ok; });
 }
 
 function openLot(doc=null, productId=null){
   const plist = products();
-  if(!plist.length){ toast('Tạo sản phẩm đầu tư trước, rồi thêm giao dịch.'); openProduct(); return; }
+  if(!plist.length){ toast(L('Tạo sản phẩm đầu tư trước, rồi thêm giao dịch.')); openProduct(); return; }
   const pid = doc? (doc.product||LEGACY_PRODUCT) : (productId || S.product || plist[0].id);
   const prod = plist.find(p=>p.id===pid) || plist[0];
   const side0 = doc?.side==='sell' ? 'sell' : 'buy';
   const price0 = doc?.price || prod.price || '';
   openSheet(`<form id="lotForm" novalidate style="display:flex;flex-direction:column;gap:14px">
-    <div class="panel-h"><h2>${doc?'Sửa giao dịch':'Thêm giao dịch đầu tư'}</h2>${closeBtn()}</div>
-    <div class="field"><label for="l-prod">Sản phẩm</label><select class="input" id="l-prod">${plist.map(p=>`<option value="${esc(p.id)}" ${p.id===prod.id?'selected':''}>${esc(productLabel(p))}${p.manager?' · '+esc(p.manager):''}</option>`).join('')}</select>
-      <span class="hint">Chưa có quỹ cần nhập? <button type="button" class="btn xs ghost" id="l-newprod">Thêm sản phẩm mới</button></span></div>
-    <div class="typeseg" role="radiogroup" aria-label="Loại giao dịch">
-      <label><input type="radio" name="l-side" value="buy" ${side0==='buy'?'checked':''}><span>Mua</span></label>
-      <label><input type="radio" name="l-side" value="sell" ${side0==='sell'?'checked':''}><span class="out">Bán / rút</span></label>
+    <div class="panel-h"><h2>${doc?L('Sửa giao dịch'):L('Thêm giao dịch đầu tư')}</h2>${closeBtn()}</div>
+    <div class="field"><label for="l-prod">${L('Sản phẩm')}</label><select class="input" id="l-prod">${plist.map(p=>`<option value="${esc(p.id)}" ${p.id===prod.id?'selected':''}>${esc(productLabel(p))}${p.manager?' · '+esc(L(p.manager)):''}</option>`).join('')}</select>
+      <span class="hint">${L('Chưa có quỹ cần nhập?')} <button type="button" class="btn xs ghost" id="l-newprod">${L('Thêm sản phẩm mới')}</button></span></div>
+    <div class="typeseg" role="radiogroup" aria-label="${L('Loại giao dịch')}">
+      <label><input type="radio" name="l-side" value="buy" ${side0==='buy'?'checked':''}><span>${L('Mua')}</span></label>
+      <label><input type="radio" name="l-side" value="sell" ${side0==='sell'?'checked':''}><span class="out">${L('Bán / rút')}</span></label>
     </div>
     <div class="row2">
-      <div class="field"><label for="l-date">Ngày giao dịch</label>${dateInput('l-date', doc?.date||defaultDateISO())}</div>
-      <div class="field"><label for="l-price">Giá / đơn vị</label><input class="input num" id="l-price" inputmode="decimal" value="${price0? String(price0).replace('.',','):''}" placeholder="vd: 13732,75"></div>
+      <div class="field"><label for="l-date">${L('Ngày giao dịch')}</label>${dateInput('l-date', doc?.date||defaultDateISO())}</div>
+      <div class="field"><label for="l-price">${L('Giá / đơn vị')}</label><input class="input num" id="l-price" inputmode="decimal" value="${price0? I.decIn(price0):''}" placeholder="${L('vd: 13732,75')}"></div>
     </div>
-    <div class="field"><label for="l-amt">Số tiền giao dịch</label><div class="amt-box"><input id="l-amt" autocomplete="off" value="${doc? vnd((+doc.units)*(+doc.price)) : ''}" placeholder="vd: 10tr"><span>₫</span></div><div class="amt-prev" id="l-prev"></div></div>
+    <div class="field"><label for="l-amt">${L('Số tiền giao dịch')}</label><div class="amt-box"><input id="l-amt" autocomplete="off" value="${doc? vnd((+doc.units)*(+doc.price)) : ''}" placeholder="${L('vd: 10tr')}"><span>₫</span></div><div class="amt-prev" id="l-prev"></div></div>
     <div class="row2">
-      <div class="field"><label for="l-units">Số lượng</label><input class="input num" id="l-units" inputmode="decimal" value="${doc? String(doc.units).replace('.',','):''}"><span class="hint">Tự tính = số tiền ÷ giá. Sửa theo sao kê nếu khác.</span></div>
-      <div class="field"><label for="l-fee">Phí giao dịch (nếu có)</label><input class="input num" id="l-fee" inputmode="decimal" value="${doc?.fee? vnd(doc.fee):''}" placeholder="0"></div>
+      <div class="field"><label for="l-units">${L('Số lượng')}</label><input class="input num" id="l-units" inputmode="decimal" value="${doc? I.decIn(doc.units):''}"><span class="hint">${L('Tự tính = số tiền ÷ giá. Sửa theo sao kê nếu khác.')}</span></div>
+      <div class="field"><label for="l-fee">${L('Phí giao dịch (nếu có)')}</label><input class="input num" id="l-fee" inputmode="decimal" value="${doc?.fee? vnd(doc.fee):''}" placeholder="0"></div>
     </div>
-    <div class="field"><label for="l-note">Ghi chú</label><input class="input" id="l-note" value="${esc(doc?.note||'')}" placeholder="vd: Mua định kỳ tháng 10"></div>
-    <p class="hint" style="margin:0" id="l-sellhint" ${side0==='sell'?'':'hidden'}>Khi bán, lãi/lỗ đã chốt được tính theo giá vốn bình quân của sản phẩm.</p>
-    <div class="panel-actions">${doc?'<button type="button" class="btn danger" id="delBtn">Xóa</button><span class="spacer"></span>':''}<button type="button" class="btn" data-close>Hủy</button><button type="submit" class="btn primary">Lưu giao dịch</button></div>
+    <div class="field"><label for="l-note">${L('Ghi chú')}</label><input class="input" id="l-note" value="${esc(doc?.note||'')}" placeholder="${L('vd: Mua định kỳ tháng 10')}"></div>
+    <p class="hint" style="margin:0" id="l-sellhint" ${side0==='sell'?'':'hidden'}>${L('Khi bán, lãi/lỗ đã chốt được tính theo giá vốn bình quân của sản phẩm.')}</p>
+    <div class="panel-actions">${doc?`<button type="button" class="btn danger" id="delBtn">${L('Xóa')}</button><span class="spacer"></span>`:''}<button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${L('Lưu giao dịch')}</button></div>
   </form>`);
   bindAmount($('#l-amt'),$('#l-prev'));
-  const calc=()=>{ const a=parseAmount($('#l-amt').value), p=parseDecimal($('#l-price').value); if(a>0&&p>0) $('#l-units').value=(Math.floor(a/p*100)/100).toString().replace('.',','); };
+  const calc=()=>{ const a=parseAmount($('#l-amt').value), p=parseDecimal($('#l-price').value); if(a>0&&p>0) $('#l-units').value=I.decIn(Math.floor(a/p*100)/100); };
   $('#l-amt').addEventListener('input',calc); $('#l-price').addEventListener('input',calc);
-  $('#l-prod').addEventListener('change', ()=>{ const p = products().find(x=>x.id===$('#l-prod').value); if(p?.price && !doc){ $('#l-price').value=String(p.price).replace('.',','); calc(); } });
+  $('#l-prod').addEventListener('change', ()=>{ const p = products().find(x=>x.id===$('#l-prod').value); if(p?.price && !doc){ $('#l-price').value=I.decIn(p.price); calc(); } });
   $('#l-newprod').addEventListener('click', ()=>openProduct());
   $$('#lotForm input[name=l-side]').forEach(r=>r.addEventListener('change', ()=>{ $('#l-sellhint').hidden = $('#lotForm input[name=l-side]:checked').value!=='sell'; }));
   $('#lotForm').addEventListener('submit', async e=>{ e.preventDefault();
     const product=$('#l-prod').value, side=$('#lotForm input[name=l-side]:checked').value;
     const price=parseDecimal($('#l-price').value), units=parseDecimal($('#l-units').value);
     const fee = $('#l-fee').value.trim()? parseAmount($('#l-fee').value) : 0;
-    if(!(price>0)||!(units>0)){ toast('Nhập giá và số lượng lớn hơn 0'); return; }
-    if(isNaN(fee)||fee<0){ toast('Phí giao dịch chưa hợp lệ'); return; }
+    if(!(price>0)||!(units>0)){ toast(L('Nhập giá và số lượng lớn hơn 0')); return; }
+    if(isNaN(fee)||fee<0){ toast(L('Phí giao dịch chưa hợp lệ')); return; }
     if(side==='sell'){ const p = products().find(x=>x.id===product); const held = productStats(p).units + (doc && doc.side==='sell' && (doc.product||LEGACY_PRODUCT)===product ? +doc.units||0 : 0) - (doc && doc.side!=='sell' && (doc.product||LEGACY_PRODUCT)===product ? +doc.units||0 : 0);
-      if(units > held + 1e-6){ toast(`Chỉ đang nắm giữ ${fmtUnits(held)} ${p.unit||''}`); return; } }
+      if(units > held + 1e-6){ toast(L('Chỉ đang nắm giữ {n} {unit}', {n:fmtUnits(held), unit:unitLabel(p.unit)})); return; } }
     const lotDate = readDate('l-date'); if(!lotDate) return;
     const body={product, side, date:lotDate, price, units, fee, note:$('#l-note').value.trim(), at:doc?.at||Date.now()};
-    if(await write(()=> doc? db.collection('vcbf').doc(doc.id).set(body) : db.collection('vcbf').add(body))){ S.product=product; toast(`Đã lưu giao dịch ${side==='sell'?'bán':'mua'}`); closeSheet(); }
+    if(await write(()=> doc? db.collection('vcbf').doc(doc.id).set(body) : db.collection('vcbf').add(body))){ S.product=product; toast(side==='sell'? L('Đã lưu giao dịch bán') : L('Đã lưu giao dịch mua')); closeSheet(); }
   });
-  if(doc) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('vcbf').doc(doc.id).delete()); if(ok) toast('Đã xóa giao dịch'); return ok; });
+  if(doc) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('vcbf').doc(doc.id).delete()); if(ok) toast(L('Đã xóa giao dịch')); return ok; });
 }
 
 function openProduct(doc=null){
   const hasLots = doc && S.vcbf.some(l=>(l.product||LEGACY_PRODUCT)===doc.id);
   openSheet(`<form id="prodForm" novalidate style="display:flex;flex-direction:column;gap:14px">
-    <div class="panel-h"><h2>${doc?'Sửa sản phẩm đầu tư':'Thêm sản phẩm đầu tư'}</h2>${closeBtn()}</div>
+    <div class="panel-h"><h2>${doc?L('Sửa sản phẩm đầu tư'):L('Thêm sản phẩm đầu tư')}</h2>${closeBtn()}</div>
     <div class="row2">
-      <div class="field"><label for="p-code">Mã sản phẩm</label><input class="input" id="p-code" value="${esc(doc?.code||'')}" placeholder="vd: VCBF-TBF, DCDS, VNM" maxlength="24"></div>
-      <div class="field"><label for="p-manager">Công ty quản lý / nơi mua</label><input class="input" id="p-manager" list="managerList" value="${esc(doc?.manager||'')}" placeholder="vd: VCBF"><datalist id="managerList">${MANAGERS.map(m=>`<option value="${esc(m)}">`).join('')}</datalist></div>
+      <div class="field"><label for="p-code">${L('Mã sản phẩm')}</label><input class="input" id="p-code" value="${esc(doc?.code||'')}" placeholder="${L('vd: VCBF-TBF, DCDS, VNM')}" maxlength="24"></div>
+      <div class="field"><label for="p-manager">${L('Công ty quản lý / nơi mua')}</label><input class="input" id="p-manager" list="managerList" value="${esc(doc?.manager||'')}" placeholder="${L('vd: VCBF')}"><datalist id="managerList">${MANAGERS.map(m=>`<option value="${esc(m)}" label="${esc(L(m))}">`).join('')}</datalist></div>
     </div>
-    <div class="field"><label for="p-name">Tên đầy đủ</label><input class="input" id="p-name" value="${esc(doc?.name||'')}" placeholder="vd: Quỹ Đầu tư Trái phiếu VCBF" maxlength="120"></div>
+    <div class="field"><label for="p-name">${L('Tên đầy đủ')}</label><input class="input" id="p-name" value="${esc(doc?.name||'')}" placeholder="${L('vd: Quỹ Đầu tư Trái phiếu VCBF')}" maxlength="120"></div>
     <div class="row2">
-      <div class="field"><label for="p-type">Loại</label><select class="input" id="p-type">${Object.entries(PRODUCT_TYPES).map(([k,l])=>`<option value="${k}" ${(doc?.type||'equity')===k?'selected':''}>${l}</option>`).join('')}</select></div>
-      <div class="field"><label for="p-mode">Hình thức</label><select class="input" id="p-mode">${Object.entries(PRODUCT_MODES).map(([k,l])=>`<option value="${k}" ${(doc?.mode||'sip')===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label for="p-type">${L('Loại')}</label><select class="input" id="p-type">${Object.entries(PRODUCT_TYPES).map(([k,l])=>`<option value="${k}" ${(doc?.type||'equity')===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label for="p-mode">${L('Hình thức')}</label><select class="input" id="p-mode">${Object.entries(PRODUCT_MODES).map(([k,l])=>`<option value="${k}" ${(doc?.mode||'sip')===k?'selected':''}>${l}</option>`).join('')}</select></div>
     </div>
     <div class="row2">
-      <div class="field"><label for="p-price">Giá hiện tại / đơn vị</label><input class="input num" id="p-price" inputmode="decimal" value="${doc?.price? String(doc.price).replace('.',','):''}" placeholder="vd: 10250,5"></div>
-      <div class="field"><label for="p-unit">Đơn vị</label><input class="input" id="p-unit" list="unitList" value="${esc(doc?.unit||'CCQ')}" maxlength="12"><datalist id="unitList"><option value="CCQ"><option value="cổ phiếu"><option value="chỉ"><option value="lượng"><option value="đơn vị"></datalist></div>
+      <div class="field"><label for="p-price">${L('Giá hiện tại / đơn vị')}</label><input class="input num" id="p-price" inputmode="decimal" value="${doc?.price? I.decIn(doc.price):''}" placeholder="${L('vd: 10250,5')}"></div>
+      <div class="field"><label for="p-unit">${L('Đơn vị')}</label><input class="input" id="p-unit" list="unitList" value="${esc(doc?.unit||'CCQ')}" maxlength="12"><datalist id="unitList">${['CCQ','cổ phiếu','chỉ','lượng','đơn vị'].map(u=>`<option value="${esc(u)}" label="${esc(unitLabel(u))}">`).join('')}</datalist></div>
     </div>
-    <div class="field"><label for="p-note">Ghi chú</label><input class="input" id="p-note" value="${esc(doc?.note||'')}" placeholder="vd: Mua định kỳ 10tr/tháng cho Dâu"></div>
-    <div class="panel-actions">${doc && !doc._virtual? `<button type="button" class="btn danger" id="delBtn" ${hasLots?'disabled title="Xóa các giao dịch của sản phẩm trước"':''}>Xóa</button><span class="spacer"></span>`:''}<button type="button" class="btn" data-close>Hủy</button><button type="submit" class="btn primary">Lưu sản phẩm</button></div>
+    <div class="field"><label for="p-note">${L('Ghi chú')}</label><input class="input" id="p-note" value="${esc(doc?.note||'')}" placeholder="${L('vd: Mua định kỳ 10tr/tháng cho Dâu')}"></div>
+    <div class="panel-actions">${doc && !doc._virtual? `<button type="button" class="btn danger" id="delBtn" ${hasLots?`disabled title="${L('Xóa các giao dịch của sản phẩm trước')}"`:''}>${L('Xóa')}</button><span class="spacer"></span>`:''}<button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${L('Lưu sản phẩm')}</button></div>
   </form>`);
   $('#prodForm').addEventListener('submit', async e=>{ e.preventDefault();
-    const code=$('#p-code').value.trim(); if(!code){ toast('Nhập mã sản phẩm'); $('#p-code').focus(); return; }
+    const code=$('#p-code').value.trim(); if(!code){ toast(L('Nhập mã sản phẩm')); $('#p-code').focus(); return; }
     const price = $('#p-price').value.trim()? parseDecimal($('#p-price').value) : 0;
-    if(isNaN(price)||price<0){ toast('Giá chưa hợp lệ. Ví dụ: 13732,75'); return; }
+    if(isNaN(price)||price<0){ toast(L('Giá chưa hợp lệ. Ví dụ: 13732,75')); return; }
     const body={code, name:$('#p-name').value.trim(), manager:$('#p-manager').value.trim(), type:$('#p-type').value, mode:$('#p-mode').value, unit:$('#p-unit').value.trim()||'đơn vị',
       price, priceDate: price && price!==(+doc?.price||0) ? todayISO() : (doc?.priceDate||''), note:$('#p-note').value.trim(), at:doc?.at||Date.now()};
     let newId = doc?.id;
     const ok = await write(async ()=>{ if(doc) await db.collection('products').doc(doc.id).set(body); else { const ref = await db.collection('products').add(body); newId = ref.id; } });
-    if(ok){ S.product = newId; toast(`Đã lưu ${code}`); closeSheet(); }
+    if(ok){ S.product = newId; toast(L('Đã lưu {code}', {code})); closeSheet(); }
   });
-  if(doc && !doc._virtual && !hasLots) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('products').doc(doc.id).delete()); if(ok){ S.product=null; toast('Đã xóa sản phẩm'); } return ok; });
+  if(doc && !doc._virtual && !hasLots) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('products').doc(doc.id).delete()); if(ok){ S.product=null; toast(L('Đã xóa sản phẩm')); } return ok; });
 }
 
 /* =========================================================
@@ -1811,14 +1837,14 @@ function openProduct(doc=null){
    ========================================================= */
 async function exportData(kind){
   const dl = window.claude?.use ? await claude.use('downloads') : null;
-  if(!dl){ toast('Không tải được tệp trên trình duyệt này.'); return; }
+  if(!dl){ toast(L('Không tải được tệp trên trình duyệt này.')); return; }
   const csv = rows => '﻿'+rows.map(r=>r.map(v=>{ const s=String(v??''); return /[",\n;]/.test(s)? '"'+s.replace(/"/g,'""')+'"' : s; }).join(',')).join('\n');
   let filename, data;
-  if(kind==='tx'){ filename='thu-chi-gia-dinh.csv'; data=csv([['Ngày','Loại','Danh mục','Số tiền (VND)','Ghi chú'], ...[...S.tx].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(t=>[fmtDate(t.date), t.kind==='income'?'Thu':'Chi', txLabel(t), Math.round(t.amount), t.note||''])]); }
-  else if(kind==='fund'){ filename='so-quy-gia-dinh.csv'; data=csv([['Ngày','Quỹ','Loại','Số tiền (VND)','Ghi chú'], ...[...S.fund].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>[fmtDate(e.date), FUNDS[e.fund]?.name||e.fund, fundTypeLabel(e.fund,e.type), Math.round(e.amount), e.note||''])]); }
+  if(kind==='tx'){ filename=L('thu-chi-gia-dinh.csv'); data=csv([[L('Ngày'),L('Loại'),L('Danh mục'),L('Số tiền (VND)'),L('Ghi chú')], ...[...S.tx].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(t=>[fmtDate(t.date), t.kind==='income'?L('Thu'):L('Chi'), txLabel(t), Math.round(t.amount), t.note||''])]); }
+  else if(kind==='fund'){ filename=L('so-quy-gia-dinh.csv'); data=csv([[L('Ngày'),L('Quỹ'),L('Loại'),L('Số tiền (VND)'),L('Ghi chú')], ...[...S.fund].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>[fmtDate(e.date), FUNDS[e.fund]?.name||e.fund, fundTypeLabel(e.fund,e.type), Math.round(e.amount), e.note||''])]); }
   else { filename='sao-luu-tai-chinh-'+todayISO()+'.json'; data=JSON.stringify({exportedAt:new Date().toISOString(), config:S.cfg, tx:S.tx, fund:S.fund, deposits:S.deposits, vcbf:S.vcbf, products:S.products, months:S.months},null,2); }
-  try{ await dl.save({filename, data}); toast('Đã tải '+filename); }
-  catch(e){ if(e?.code==='declined') return; toast('Không tải được tệp.'); }
+  try{ await dl.save({filename, data}); toast(L('Đã tải {file}', {file:filename})); }
+  catch(e){ if(e?.code==='declined') return; toast(L('Không tải được tệp.')); }
 }
 
 /* =========================================================
@@ -1837,8 +1863,9 @@ async function boot(){
     try{ S.meId = await user.id(); }catch(e){}
     try{ const w = await user.can('data.write'); if(w===false) S.canWrite=false; }catch(e){}
     try{ const me = await user.me(); const role = window.FIN?.session()?.role;
-      $('#meBox').innerHTML = `<img alt="" src="${esc(me.avatarUrl)}"><div style="min-width:0;flex:1"><b class="me-name"></b><span class="me-role">${ROLE_LABEL[role]||''}</span></div><button class="icon-btn" type="button" id="logoutBtn" aria-label="Đăng xuất" title="Đăng xuất">${ico('<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/>')}</button>`;
-      $('#meBox .me-name').textContent = me.name || 'Bạn';
+      $('#meBox').innerHTML = `<img alt="" src="${esc(me.avatarUrl)}"><div style="min-width:0;flex:1"><b class="me-name"></b><span class="me-role">${ROLE_LABEL[role]||''}</span></div><button class="icon-btn" type="button" id="logoutBtn" aria-label="Đăng xuất" title="Đăng xuất" data-i18n-attr="aria-label,title">${ico('<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/>')}</button>`;
+      I.apply($('#meBox'));
+      $('#meBox .me-name').textContent = me.name || L('Bạn');
       $('#logoutBtn').addEventListener('click', ()=>FIN.logout());
     }catch(e){}
   }

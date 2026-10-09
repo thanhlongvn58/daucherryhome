@@ -222,6 +222,14 @@ test('iPhone shortcut tokens: summary, quick add, scope and revoke', async () =>
   const bad = await raw('POST', '/api/shortcut/add', { danh_muc: 'xyz', so_tien: 100000 }, bearer);
   assert.equal(bad.status, 400);
   assert.match(await bad.text(), /Không nhận ra danh mục/);
+
+  // the same endpoints answer in English or Japanese with ?lang=
+  assert.match(await (await raw('GET', '/api/shortcut/summary?lang=en', undefined, bearer)).text(), /^Family Finance[\s\S]*Net worth: 135\.5M/);
+  assert.match(await (await raw('GET', '/api/shortcut/summary?lang=ja', undefined, bearer)).text(), /^家計簿[\s\S]*純資産：1\.3\d億/);
+  assert.match(await (await raw('GET', '/api/shortcut/summary?lang=en')).text(), /^Error: Missing shortcut code/);
+  assert.match(await (await raw('POST', '/api/shortcut/add?lang=en', { danh_muc: 'fuel', so_tien: '50k' }, bearer)).text(), /^Recorded Transport −50,000 ₫/);
+  assert.match(await (await raw('POST', '/api/shortcut/add?lang=ja', { danh_muc: '食費', so_tien: '25万' }, bearer)).text(), /^食費・日用品 −250,000 ₫ を記録しました/);
+  assert.match(await (await raw('POST', '/api/shortcut/add?lang=en', { danh_muc: 'xyz', so_tien: 1 }, bearer)).text(), /^Error: Unknown category "xyz"/);
   // a shortcut token only opens the shortcut endpoints
   assert.equal((await raw('GET', '/api/c/tx', undefined, bearer)).status, 401);
 
