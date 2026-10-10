@@ -1249,6 +1249,14 @@ function viewLanguage(){
     <div class="lang-pick" role="radiogroup" aria-label="${L('Ngôn ngữ')}">${Object.entries(I.LANGS).map(([k,v])=>`<button type="button" role="radio" aria-checked="${cur===k}" data-lang-set="${k}" class="lang-opt ${cur===k?'on':''}" lang="${k}"><span class="lang-code">${v.short}</span><span class="lang-name">${v.name}</span><span class="hint">${L(LANG_HINT[k])}</span></button>`).join('')}</div>
     <p class="hint" style="margin:10px 0 0">${L('Ngày tháng luôn hiển thị theo dạng DD/MM/YYYY ở mọi ngôn ngữ. Số tiền vẫn tính bằng đồng (₫).')}</p></div>`;
 }
+/** Greeting by the device's local time: morning 05:00–11:59, afternoon 12:00–17:59, evening otherwise. */
+function paintGreeting(){
+  const el=$('#greeting'), me=window.FIN?.session(); if(!el) return;
+  if(!me){ el.textContent=''; return; }
+  const h=new Date().getHours();
+  const key = h>=5 && h<12 ? 'Chào buổi sáng, {name}' : h>=12 && h<18 ? 'Chào buổi chiều, {name}' : 'Chào buổi tối, {name}';
+  const txt=L(key, {name:me.name}); if(el.textContent!==txt) el.textContent=txt;
+}
 function setLang(v){ if(!I.LANGS[v] || v===I.get()) return; I.set(v); }
 function paintLangSel(){ const s=$('#langSel'); if(s) s.value = I.get(); const c=$('#langCode'); if(c) c.textContent = I.LANGS[I.get()].short; }
 const ROLE_LABEL = i18nize({owner:'Chủ sổ', member:'Thành viên', viewer:'Chỉ xem'});
@@ -1332,6 +1340,7 @@ function render(){
   const v = VIEWS[S.view] || VIEWS.overview; const g = v.group;
   $('#pageTitle').textContent = v.title;
   $('#brandYear').textContent = curYear();
+  paintGreeting();
   renderYearPicker();
   $('#pageEyebrow').textContent = g==='overview'? L('Tổng quan')+' · '+S.year : GROUPS.find(x=>x.id===g).label;
   $('#nav').innerHTML = GROUPS.map(x=>`<a href="#${x.id}" ${x.id===g?'aria-current="page"':''}>${ico(ICONS[x.id])}${x.label}</a>${x.id==='invest'? `<div class="sub">${INVEST_TABS.map(([id,l])=>`<a href="#${id}" ${S.view===id?'aria-current="page"':''}>${l}</a>`).join('')}</div>`:''}`).join('');
@@ -1362,6 +1371,7 @@ setInterval(()=>{
   const t = Date.now();
   $$('[data-clock]').forEach(el=>{ el.textContent = fmtDateTime(new Date(t)); });
   const by=$('#brandYear'); if(by && by.textContent!==String(curYear())) by.textContent=curYear();
+  if(t%60000<1000) paintGreeting();
   if(S.view!=='deposits' && S.view!=='invest') return;
   const act = activeDeposits();
   $$('[data-live-days]').forEach(el=>{ const d=S.deposits.find(x=>x.id===el.dataset.liveDays); if(d) el.innerHTML=daysText(d,t); });

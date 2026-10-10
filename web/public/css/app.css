@@ -605,3 +605,7 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 .sum-tbl td:first-child,.sum-tbl th:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
 .sum-tbl th:first-child,.sum-tbl tr.total td:first-child{background:var(--surface-2)}
 .sum-tbl td:first-child{box-shadow:1px 0 0 var(--line-2)}
+
+/* ---------- greeting ---------- */
+.greeting{margin:0 0 6px;font-size:14px;font-weight:600;color:var(--accent);letter-spacing:.005em;min-height:1.2em}
+.greeting:empty{display:none}

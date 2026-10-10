@@ -711,6 +711,11 @@ window.STC_I18N_DICT = {
 "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.": ["Can't reach the server. Check your network and try again.", "サーバーに接続できません。ネットワークを確認してもう一度お試しください。"],
 "Không kết nối được máy chủ.": ["Can't reach the server.", "サーバーに接続できません。"],
 
+/* ---------- greeting ---------- */
+"Chào buổi sáng, {name}": ["Good morning, {name}", "おはようございます、{name}さん"],
+"Chào buổi chiều, {name}": ["Good afternoon, {name}", "こんにちは、{name}さん"],
+"Chào buổi tối, {name}": ["Good evening, {name}", "こんばんは、{name}さん"],
+
 /* ---------- session & sign-in safety ---------- */
 "Ghi nhớ đăng nhập": ["Remember me", "ログイン情報を保存"],
 "Nhớ tên đăng nhập trên thiết bị này; mật khẩu do iPhone/trình duyệt lưu an toàn.": ["Keeps your username on this device; your iPhone or browser stores the password securely.", "この端末にユーザー名を保存します。パスワードはiPhoneやブラウザが安全に保存します。"],
