@@ -99,7 +99,7 @@ export function createAuth(store, cfg) {
       const n = name === undefined ? { value: cur.name } : validateName(name); if (n.error) throw httpError(400, n.error);
       const r = role === undefined ? cur.role : role;
       if (!ROLES.includes(r)) throw httpError(400, 'Vai trò không hợp lệ.');
-      if (cur.role === 'owner' && r !== 'owner' && q.owners.get().n <= 1) throw httpError(400, 'Gia đình cần ít nhất một Admin.');
+      if (cur.role === 'owner' && r !== 'owner' && q.owners.get().n <= 1) throw httpError(400, 'Gia đình cần ít nhất một Chủ nhà.');
       q.updateUser.run(n.value, r, id);
       return auth.getUser(id);
     },
@@ -115,7 +115,7 @@ export function createAuth(store, cfg) {
     },
     deleteUser(id) {
       const cur = q.userById.get(id); if (!cur) throw httpError(404, 'Không tìm thấy thành viên.');
-      if (cur.role === 'owner' && q.owners.get().n <= 1) throw httpError(400, 'Không thể xóa Admin duy nhất.');
+      if (cur.role === 'owner' && q.owners.get().n <= 1) throw httpError(400, 'Không thể xóa Chủ nhà duy nhất.');
       q.deleteUser.run(id);
     },
 

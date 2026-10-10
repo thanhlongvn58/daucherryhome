@@ -1,6 +1,7 @@
 /* Open-ended funds in Vietnam and their management companies, as of 10/10/2026.
    Sources: Fmarket fund list (api.fmarket.vn, 69 funds trading on 10/10/2026); Techcombank / Techcom Capital
-   product pages (TCBF, TCEF, TCFF, TCFIN, TCSME, TCRES); KIS Vietnam distributor page for VFM (VFMVF1, VFMVF4, VFMVFA, VFMVFB).
+   product pages (TCBF, TCEF, TCFF, TCFIN, TCSME, TCRES); KIS Vietnam distributor page for VFM (VFMVF1, VFMVF4, VFMVFA, VFMVFB);
+   VCBF-CFO (money market) added from the family's own information.
    type: equity | bond | balanced | mmf. Users can still type any fund or company not listed here. */
 window.STC_FUNDS = {
   asOf: '2026-10-10',
@@ -96,6 +97,7 @@ window.STC_FUNDS = {
     {"code":"UVEEF","name":"Quỹ Đầu tư Cổ phiếu United ESG Việt Nam","manager":"UOBAM Việt Nam","type":"equity"},
     {"code":"VCBF-AIF","name":"Quỹ Đầu tư Thu nhập Chủ động VCBF","manager":"VCBF","type":"equity"},
     {"code":"VCBF-BCF","name":"Quỹ Đầu tư Cổ phiếu Hàng đầu VCBF","manager":"VCBF","type":"equity"},
+    {"code":"VCBF-CFO","name":"Quỹ Đầu tư Tối ưu Dòng tiền VCBF","manager":"VCBF","type":"mmf"},
     {"code":"VCBF-FIF","name":"Quỹ Đầu tư Trái phiếu VCBF","manager":"VCBF","type":"bond"},
     {"code":"VCBF-MGF","name":"Quỹ Đầu tư Cổ phiếu Tăng trưởng VCBF","manager":"VCBF","type":"equity"},
     {"code":"VCBF-TBF","name":"Quỹ Đầu tư Cân bằng Chiến lược VCBF","manager":"VCBF","type":"balanced"},

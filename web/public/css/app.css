@@ -684,3 +684,16 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
   /* while a figure is being edited it takes the full row, so the running total stays readable next to + / − */
   .mrow:focus-within .m-in{grid-column:1/-1}
 }
+
+/* ---------- charts: holding a finger shows the tooltip, never a text selection or the iOS callout ---------- */
+.chart,.chart *,.donut,.donut *,.tip{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+.chart svg{touch-action:pan-y}
+/* ---------- greeting location: full on wide screens, short on narrow ones ---------- */
+.g-loc .loc-n{display:none}
+@media (max-width:900px){.g-loc .loc-w{display:none}.g-loc .loc-n{display:inline}}
+/* ---------- long tables scroll inside the card; header and totals stay visible ---------- */
+.tbl-scroll{max-height:calc(var(--rows) * var(--row-h) + 88px);overflow:auto;overscroll-behavior:contain;border-bottom:1px solid var(--line-2)}
+.tbl-scroll thead th{position:sticky;top:0;z-index:3}
+.tbl-scroll tfoot td{position:sticky;bottom:0;z-index:3}
+.scroll-hint{display:flex;align-items:center;gap:6px;margin:8px 0 0}
+.scroll-hint .ico{width:14px;height:14px}

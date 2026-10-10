@@ -731,13 +731,17 @@ function journalSub(f){
   if(y<=startY) return `<span class="sub">${L('Năm {y} · số dư đầu kỳ {date}: {v} ₫', {y, date:fmtDate(cfg().openings.asOf), v:vnd(cfg().openings[f])})}</span>`;
   return `<span class="sub">${L('Năm {y} · đầu năm {start} → cuối năm {end} ₫', {y, start:`<b class="num">${vnd(fundBalance(f,(y-1)+'-12-31'))}</b>`, end:`<b class="num">${vnd(fundBalance(f,y+'-12-31'))}</b>`})}</span>`;
 }
+/** Table container that shows the latest `max` rows and scrolls for older ones (header and totals stay put). */
+const scrollWrap = (n, max, rowH) => n>max ? `<div class="tbl-wrap tbl-scroll" style="--rows:${max};--row-h:${rowH}px">` : '<div class="tbl-wrap">';
+const scrollHint = (n, max) => n>max ? `<p class="hint scroll-hint">${ico('<path d="M12 5v14M7 14l5 5 5-5"/>')}${L('Đang hiện {max} dòng gần nhất · kéo trong bảng để xem {rest} dòng trước đó.', {max, rest:n-max})}</p>` : '';
 function fundJournal(f){
   const list = S.fund.filter(e=>e.fund===f && (e.date||'').startsWith(String(S.year))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.at||0)-(a.at||0));
   if(!list.length) return `<div class="empty"><b>${L('Chưa có giao dịch năm {y}', {y:S.year})}</b>${L('Dùng mục nhập liệu để ghi nhận khoản đầu tiên.')}</div>`;
-  return `<div class="tbl-wrap"><table>
+  const max = f==='savings'? 10 : 15;   // savings journal: latest 10, emergency journal: latest 15
+  return `${scrollWrap(list.length, max, 50)}<table>
     <thead><tr><th>${L('Ngày')}</th><th class="l">${L('Loại')}</th><th>${L('Số tiền (₫)')}</th><th class="l">${L('Ghi chú / nguồn')}</th>${S.canWrite?'<th></th>':''}</tr></thead>
     <tbody>${list.map(e=>{ const out=e.type==='out'; return `<tr><td class="num">${fmtDate(e.date)}</td><td class="txt"><span class="chip ${out?'neg':e.type==='interest'?'gold':'pos'}">${fundTypeLabel(f,e.type)}</span></td><td class="${out?'neg':'pos'}">${out?'−':'+'}${vnd(e.amount)}</td><td class="wrap">${whoTag(e)}${esc(e.note||'')}</td>${S.canWrite?`<td><span class="act"><button class="btn xs" type="button" data-edit-fund="${esc(e.id)}">${L('Sửa')}</button>${delBtn('fund',e.id)}</span></td>`:''}</tr>`; }).join('')}</tbody>
-  </table></div>`;
+  </table></div>${scrollHint(list.length, max)}`;
 }
 
 /* =========================================================
@@ -748,7 +752,7 @@ function heroCard(){
   const y = S.year; const future = y>curYear(); const N = navAt(y); const P = navAt(y-1); const prevNav = future? 0 : (P.total||0);
   const growth = prevNav && N.total? (N.total-prevNav)/prevNav : NaN;
   const hv = []; const top = future? curYear() : y;
-  for(let k=top-3;k<top;k++){ const t=navAt(k).total; if(t) hv.push({y:k, v:t}); } if(N.total) hv.push({y:top, v:N.total, now:true});
+  for(let k=top-2;k<top;k++){ const t=navAt(k).total; if(t) hv.push({y:k, v:t}); } if(N.total) hv.push({y:top, v:N.total, now:true});
   const hmax = Math.max(1,...hv.map(h=>h.v)); const yt = yearTotals(y);
   const keys = ['savings','kids','risk','emergency'];
   const label = N.kind==='live' ? `${future? L('Tổng tài sản ròng (NAV) hiện tại') : L('Tổng tài sản ròng (NAV)')} · <span class="num" data-clock>${clockHTML(new Date())}</span>`
@@ -767,6 +771,43 @@ function heroCard(){
     <div class="alloc-legend">${keys.map(k=>`<div><div class="t"><i class="swatch" style="background:var(--f-${k})"></i>${FUNDS[k].short}</div><div class="a">${compact(N.parts[k])}</div><div class="p">${N.total?pctPlain(N.parts[k]/N.total):'—'}</div></div>`).join('')}</div>`
     : `<p class="hero-meta" style="margin-top:16px">${L('Năm này chỉ có số tổng tài sản ròng, chưa có chi tiết từng quỹ.')}</p>`}
   </section>`;
+}
+/** Net worth at each year end (the current year live). */
+function navYearsSeries(){ const out=[]; for(let k=firstYear(); k<=curYear(); k++){ const t=navAt(k).total; if(t) out.push({y:k, v:t, now:k===curYear()}); } return out; }
+/** Bar chart of yearly values with the change on the previous bar; tooltips on tap. */
+function chartYearBars(rows, id, color, label){
+  const W=1040,H=260,pl=58,pt=24,pb=28,ih=H-pt-pb,iw=W-pl-8,bw=iw/rows.length;
+  const max = niceMax(Math.max(1,...rows.map(r=>r.v)));
+  let g = axis(max,W,pl,pt,ih);
+  g += `<line class="guide" x1="0" x2="0" y1="${pt}" y2="${pt+ih}" stroke="var(--muted)" stroke-dasharray="3 3" style="opacity:0"/>`;
+  rows.forEach((r,i)=>{ const x=pl+i*bw, w=Math.max(8,Math.min(54,bw*.5)), h=ih*Math.max(0,r.v)/max, cx=x+bw/2;
+    g += `<rect x="${cx-w/2}" y="${pt+ih-h}" width="${w}" height="${h}" rx="4" fill="${color}" ${r.now?'':'opacity=".72"'}/>`;
+    const prev = rows[i-1]; if(prev && prev.v){ const c=(r.v-prev.v)/prev.v; g += `<text x="${cx}" y="${pt+ih-h-6}" text-anchor="middle" style="fill:${c>=0?'var(--pos)':'var(--neg)'};font-weight:600">${pct(c,0)}</text>`; }
+    g += `<text x="${cx}" y="${H-8}" text-anchor="middle" ${r.now?'style="fill:var(--ink);font-weight:700"':''}>${r.y}</text>`; });
+  CH[id] = {W, x0:pl+bw/2, step:bw, n:rows.length, tip:i=>{ const r=rows[i], p=rows[i-1];
+    return `<b>${r.now? L('Năm {y} (hiện tại)', {y:r.y}) : L('Cuối năm {y}', {y:r.y})}</b>`+tipRows([{n:L('Tài sản ròng'),c:color,v:vnd(r.v)}, ...(p&&p.v? [{n:L('So với năm trước'),v:`<span class="${r.v>=p.v?'pos':'neg'}">${signed(r.v-p.v)} (${pct((r.v-p.v)/p.v,1)})</span>`}] : [])]); }};
+  return `<div class="chart" data-chart="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">${g}</svg></div>`;
+}
+/** Income and expenses side by side for each year. */
+function chartYearFlows(rows){
+  const W=1040,H=260,pl=58,pt=12,pb=28,ih=H-pt-pb,iw=W-pl-8,bw=iw/rows.length;
+  const max = niceMax(Math.max(1,...rows.map(r=>Math.max(r.income,r.exp))));
+  let g = axis(max,W,pl,pt,ih);
+  g += `<line class="guide" x1="0" x2="0" y1="${pt}" y2="${pt+ih}" stroke="var(--muted)" stroke-dasharray="3 3" style="opacity:0"/>`;
+  rows.forEach((r,i)=>{ const x0=pl+i*bw, w=Math.max(6,Math.min(34,bw*.3)), hI=ih*r.income/max, hE=ih*r.exp/max, cx=x0+bw/2;
+    g += `<rect x="${cx-w-1}" y="${pt+ih-hI}" width="${w}" height="${hI}" rx="3" fill="var(--accent)"/><rect x="${cx+1}" y="${pt+ih-hE}" width="${w}" height="${hE}" rx="3" fill="var(--exp)"/>`;
+    g += `<text x="${cx}" y="${H-8}" text-anchor="middle">${r.y}</text>`; });
+  CH.yflows = {W, x0:pl+bw/2, step:bw, n:rows.length, tip:i=>{ const r=rows[i], d=r.income-r.exp;
+    return `<b>${r.y}</b>`+tipRows([{n:L('Thu nhập'),c:'var(--accent)',v:vnd(r.income)},{n:L('Chi tiêu'),c:'var(--exp)',v:vnd(r.exp)},{n:L('Thặng dư'),v:`<span class="${d<0?'neg':''}">${signed(d)}</span>`},{n:L('Tỷ lệ tiết kiệm'),v:r.income?pctPlain(d/r.income):'—'}]); }};
+  return `<div class="chart" data-chart="yflows"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${L('Thu nhập và chi tiêu qua các năm')}">${g}</svg></div>
+  <div class="legend"><span><i class="swatch" style="background:var(--accent)"></i>${L('Thu nhập')}</span><span><i class="swatch" style="background:var(--exp)"></i>${L('Chi tiêu')}</span></div>`;
+}
+function navGrowthCard(){
+  const rows = navYearsSeries(); if(rows.length<=3) return '';
+  const first = rows[0], last = rows[rows.length-1], yrs = last.y-first.y, cagr = yrs>0 && first.v>0? Math.pow(last.v/first.v, 1/yrs)-1 : NaN;
+  return `<div class="card section-gap"><div class="card-h"><h2>${L('Tăng trưởng tài sản qua các năm')}</h2><span class="sub">${L('{a} – {b} · bình quân {p}/năm', {a:first.y, b:last.y, p:pct(cagr,1)})}</span></div>
+    ${chartYearBars(rows, 'navy', 'var(--f-savings)', L('Tài sản ròng cuối mỗi năm'))}
+    <p class="hint" style="margin:8px 0 0">${L('Chạm vào từng cột để xem tài sản ròng và mức thay đổi so với năm trước.')}</p></div>`;
 }
 function viewOverview(){
   const y = S.year, m = refMonth(y);
@@ -794,6 +835,7 @@ function viewOverview(){
       <div class="meter ${emTone==='pos'?'pos':emTone==='gold'?'gold':'warn'}" style="margin-top:9px"><i style="width:${Math.min(100,em.months/em.target*100)}%"></i></div>
       <div class="foot"><span class="chip ${emTone}">${em.months>=em.target?L('Đạt mục tiêu'):em.months>=EMERGENCY_MIN?L('Đạt mức tối thiểu'):L('Dưới mức an toàn')}</span> ${L('mục tiêu {n} tháng', {n:em.target})}</div></div>
   </div>
+  ${navGrowthCard()}
   <div class="grid g-main section-gap">
     <div class="card"><div class="card-h"><h2>${L('Dòng tiền {y}', {y})}</h2><span class="sub">${L('Thặng dư lũy kế')} <b class="num ${ysur<0?'neg':'pos'}">${signed(ysur)} ₫</b></span></div>${yt.months? chartCashflow(agg,y) : emptyYear(y)}</div>
     <div class="card"><div class="card-h"><h2>${L('Cơ cấu chi phí')}</h2>
@@ -973,6 +1015,7 @@ function historyCard(sel){
   if(!rows.length) return '';
   const T = {income:sum(rows,r=>r.income), exp:sum(rows,r=>r.exp), months:sum(rows,r=>r.months)};
   return `<div class="card section-gap"><div class="card-h"><h2>${L('Thu chi qua các năm (lũy kế)')}</h2><span class="sub">${L('Bấm vào một năm để chuyển sang năm đó')}</span></div>
+    ${rows.length>3? `<div style="margin-bottom:14px">${chartYearFlows(rows)}</div>` : ''}
     <div class="tbl-wrap"><table><thead><tr><th>${L('Năm')}</th><th>${L('Số tháng')}</th><th>${L('Thu nhập (₫)')}</th><th>${L('Chi tiêu (₫)')}</th><th>${L('Thặng dư (₫)')}</th><th>${L('Tỷ lệ TK')}</th><th>${L('Chi TB/tháng')}</th></tr></thead>
     <tbody>${rows.map(r=>{ const d=r.income-r.exp; return `<tr class="click ${r.y===sel?'sel':''}" data-set-year="${r.y}"><td><b>${r.y}</b>${r.source==='history'?` <span class="chip">${L('số tổng năm')}</span>`:''}${r.y===curYear()?` <span class="chip acc">${L('đến nay')}</span>`:''}</td><td>${r.months}</td><td>${vnd(r.income)}</td><td>${vnd(r.exp)}</td><td class="${d<0?'neg':'pos'}">${signed(d)}</td><td>${r.income?pctPlain(d/r.income):'—'}</td><td>${vnd(r.exp/r.months)}</td></tr>`; }).join('')}
       <tr class="total"><td>${L('Lũy kế')}</td><td>${T.months}</td><td>${vnd(T.income)}</td><td>${vnd(T.exp)}</td><td class="${T.income-T.exp<0?'neg':'pos'}">${signed(T.income-T.exp)}</td><td>${T.income?pctPlain((T.income-T.exp)/T.income):'—'}</td><td>${vnd(T.exp/(T.months||1))}</td></tr></tbody></table></div></div>`;
@@ -1134,9 +1177,9 @@ function viewEmergency(){
   </div>
   <div class="grid g-split section-gap">
     <div class="card"><div class="card-h"><h2>${L('Dòng tiền quỹ theo năm')}</h2><span class="sub">${L('{y} – hiện tại', {y:years[0]||y})}</span></div>
-      <div class="tbl-wrap"><table><thead><tr><th>${L('Năm')}</th><th>${L('Thu vào (₫)')}</th><th>${L('Chi ra (₫)')}</th><th>${L('Tiền ròng (₫)')}</th><th>${L('Số dư cuối kỳ')}</th></tr></thead>
-        <tbody>${fRows.map(r=>`<tr><td><b>${r.y}</b>${+r.y===y?` <span class="chip acc">${L('đến nay')}</span>`:''}</td><td class="pos">${vnd(r.in)}</td><td class="neg">${vnd(r.out)}</td><td class="${r.net<0?'neg':'pos'}"><b>${signed(r.net)}</b></td><td>${vnd(r.end)}</td></tr>`).join('')}
-        <tr class="total"><td>${L('Tổng cộng')}</td><td class="pos">${vnd(tIn)}</td><td class="neg">${vnd(tOut)}</td><td class="${tIn-tOut<0?'neg':'pos'}">${signed(tIn-tOut)}</td><td>${vnd(em.bal)}</td></tr></tbody></table></div>
+      ${scrollWrap(fRows.length, 5, 42)}<table><thead><tr><th>${L('Năm')}</th><th>${L('Thu vào (₫)')}</th><th>${L('Chi ra (₫)')}</th><th>${L('Tiền ròng (₫)')}</th><th>${L('Số dư cuối kỳ')}</th></tr></thead>
+        <tbody>${[...fRows].reverse().map(r=>`<tr><td><b>${r.y}</b>${+r.y===y?` <span class="chip acc">${L('đến nay')}</span>`:''}</td><td class="pos">${vnd(r.in)}</td><td class="neg">${vnd(r.out)}</td><td class="${r.net<0?'neg':'pos'}"><b>${signed(r.net)}</b></td><td>${vnd(r.end)}</td></tr>`).join('')}
+        </tbody><tfoot><tr class="total"><td>${L('Tổng cộng')}</td><td class="pos">${vnd(tIn)}</td><td class="neg">${vnd(tOut)}</td><td class="${tIn-tOut<0?'neg':'pos'}">${signed(tIn-tOut)}</td><td>${vnd(em.bal)}</td></tr></tfoot></table></div>${scrollHint(fRows.length, 5)}
       <div style="margin-top:16px">${chartArea(pts,'var(--f-emergency)',L('Số dư quỹ khẩn cấp theo tháng'),'emg')}</div>
     </div>
     <div class="card"><div class="card-h"><h2>${L('Ghi nhận thu / chi quỹ khẩn cấp')}</h2></div>${S.canWrite? fundForm('emergency') : `<p class="hint">${L('Tài khoản chỉ xem không ghi được giao dịch.')}</p>`}</div>
@@ -1174,10 +1217,11 @@ function kidsByYear(){
   const rows={}; for(const l of S.vcbf){ const y=(l.date||'').slice(0,4); if(!y) continue; rows[y]=rows[y]||{buy:0,sell:0,n:0}; const v=(+l.units||0)*(+l.price||0); if(l.side==='sell') rows[y].sell+=v-(+l.fee||0); else rows[y].buy+=v+(+l.fee||0); rows[y].n++; }
   const ys=Object.keys(rows).sort(); if(!ys.length) return '';
   let cum=0; const T={buy:sum(ys,y=>rows[y].buy), sell:sum(ys,y=>rows[y].sell), n:sum(ys,y=>rows[y].n)};
+  const cumOf = {}; for(const y of ys){ cum += rows[y].buy-rows[y].sell; cumOf[y]=cum; }
   return `<div class="card section-gap"><div class="card-h"><h2>${L('Vốn góp theo năm')}</h2><span class="sub">${L('Tất cả sản phẩm · lũy kế qua các năm')}</span></div>
-    <div class="tbl-wrap"><table><thead><tr><th>${L('Năm')}</th><th>${L('Giao dịch')}</th><th>${L('Mua vào (₫)')}</th><th>${L('Bán / rút (₫)')}</th><th>${L('Góp ròng (₫)')}</th><th>${L('Lũy kế góp ròng (₫)')}</th></tr></thead>
-    <tbody>${ys.map(y=>{ const r=rows[y], net=r.buy-r.sell; cum+=net; return `<tr class="click ${+y===S.year?'sel':''}" data-set-year="${y}"><td><b>${y}</b></td><td>${r.n}</td><td>${vnd(r.buy)}</td><td>${r.sell?vnd(r.sell):'—'}</td><td>${vnd(net)}</td><td><b>${vnd(cum)}</b></td></tr>`; }).join('')}
-      <tr class="total"><td>${L('Tổng')}</td><td>${T.n}</td><td>${vnd(T.buy)}</td><td>${T.sell?vnd(T.sell):'—'}</td><td>${vnd(T.buy-T.sell)}</td><td>${vnd(T.buy-T.sell)}</td></tr></tbody></table></div></div>`;
+    ${scrollWrap(ys.length, 5, 42)}<table><thead><tr><th>${L('Năm')}</th><th>${L('Giao dịch')}</th><th>${L('Mua vào (₫)')}</th><th>${L('Bán / rút (₫)')}</th><th>${L('Góp ròng (₫)')}</th><th>${L('Lũy kế góp ròng (₫)')}</th></tr></thead>
+    <tbody>${[...ys].reverse().map(y=>{ const r=rows[y], net=r.buy-r.sell, cum=cumOf[y]; return `<tr class="click ${+y===S.year?'sel':''}" data-set-year="${y}"><td><b>${y}</b></td><td>${r.n}</td><td>${vnd(r.buy)}</td><td>${r.sell?vnd(r.sell):'—'}</td><td>${vnd(net)}</td><td><b>${vnd(cum)}</b></td></tr>`; }).join('')}
+      </tbody><tfoot><tr class="total"><td>${L('Tổng')}</td><td>${T.n}</td><td>${vnd(T.buy)}</td><td>${T.sell?vnd(T.sell):'—'}</td><td>${vnd(T.buy-T.sell)}</td><td>${vnd(T.buy-T.sell)}</td></tr></tfoot></table></div>${scrollHint(ys.length, 5)}</div>`;
 }
 function productDetail(i, items){
   const p = i.p; const buys = i.lots.filter(l=>l.side!=='sell');
@@ -1197,15 +1241,15 @@ function productDetail(i, items){
       <p class="hint" style="margin:0;flex:1;min-width:200px">${p.priceDate? L('Cập nhật lần cuối {date}.', {date:fmtDate(p.priceDate)}) : L('Chưa cập nhật giá.')} ${L('Giá này chỉ áp dụng cho {p}; mỗi sản phẩm giữ giá riêng.', {p:esc(productLabel(p))})}</p>
     </div>
     ${buys.length? `<div class="section-gap"><div class="flabel" style="margin-bottom:6px">${L('Lãi/lỗ % từng lần mua theo thời gian')}</div>${chartLotPL(buys, i.price)}</div>`:''}
-    <div class="section-gap">${i.lots.length? `<div class="tbl-wrap"><table>
+    <div class="section-gap">${i.lots.length? `${scrollWrap(i.lots.length, 20, 46)}<table>
       <thead><tr><th>${L('Ngày')}</th><th class="l">${L('Loại')}</th><th>${L('Số lượng')}</th><th>${L('Giá')}</th><th>${L('Giá trị giao dịch')}</th><th>${L('Giá trị hiện tại')}</th><th>${L('Lãi / lỗ')}</th><th class="l" style="min-width:140px">${L('% lãi/lỗ')}</th>${S.isOwner?'<th></th>':''}</tr></thead>
-      <tbody>${i.lots.map(l=>{ const u=+l.units||0, pr=+l.price||0, fee=+l.fee||0, sell=l.side==='sell';
+      <tbody>${[...i.lots].reverse().map(l=>{ const u=+l.units||0, pr=+l.price||0, fee=+l.fee||0, sell=l.side==='sell';
         const amount = u*pr + (sell? -fee : fee), val = u*i.price, r = pr? (i.price-pr)/pr : 0, w = Math.min(50, Math.abs(r)*250);
         return `<tr class="click" data-edit-lot="${esc(l.id)}"><td class="num">${fmtDate(l.date)}</td><td class="txt"><span class="chip ${sell?'neg':'pos'}">${sell?L('Bán / rút'):L('Mua')}</span></td><td>${fmtUnits(u)}</td><td>${fmtPrice(pr)}</td><td>${vnd(amount)}</td>
           <td>${sell?'—':vnd(val)}</td><td class="${sell?'':val-amount>=0?'pos':'neg'}">${sell?'—':signed(val-amount)}</td>
           <td class="l">${sell? `<span class="muted">${L('Đã chốt')}</span>` : `<div style="display:flex;align-items:center;gap:8px"><div style="position:relative;width:80px;height:8px;background:var(--sunken);border-radius:4px;flex:none"><span style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--line)"></span><span style="position:absolute;top:0;bottom:0;border-radius:4px;${r>=0?`left:50%;width:${w}%;background:var(--pos)`:`right:50%;width:${w}%;background:var(--neg)`}"></span></div><span class="${r>=0?'pos':'neg'}">${pct(r,1)}</span></div>`}</td>${S.isOwner?`<td>${delBtn('vcbf',l.id)}</td>`:''}</tr>`; }).join('')}
-        <tr class="total"><td>${L('Tổng')}</td><td></td><td>${fmtUnits(i.units)}</td><td>${fmtPrice(i.avg)}</td><td>${vnd(i.cost)}</td><td>${vnd(i.value)}</td><td class="${i.pl>=0?'pos':'neg'}">${signed(i.pl)}</td><td class="l ${i.pl>=0?'pos':'neg'}">${pct(i.plPct,2)}</td>${S.isOwner?'<td></td>':''}</tr>
-      </tbody></table></div>` : `<div class="empty"><b>${L('Chưa có giao dịch')}</b>${L('Bấm “Giao dịch {p}” để thêm lần mua đầu tiên.', {p:esc(productLabel(p))})}</div>`}</div>
+      </tbody><tfoot><tr class="total"><td>${L('Tổng')}</td><td></td><td>${fmtUnits(i.units)}</td><td>${fmtPrice(i.avg)}</td><td>${vnd(i.cost)}</td><td>${vnd(i.value)}</td><td class="${i.pl>=0?'pos':'neg'}">${signed(i.pl)}</td><td class="l ${i.pl>=0?'pos':'neg'}">${pct(i.plPct,2)}</td>${S.isOwner?'<td></td>':''}</tr></tfoot>
+      </table></div>${scrollHint(i.lots.length, 20)}` : `<div class="empty"><b>${L('Chưa có giao dịch')}</b>${L('Bấm “Giao dịch {p}” để thêm lần mua đầu tiên.', {p:esc(productLabel(p))})}</div>`}</div>
   </div>`;
 }
 
@@ -1393,61 +1437,76 @@ function paintGreeting(){
   const key = h>=5 && h<12 ? 'Chào buổi sáng, {name}' : h>=12 && h<18 ? 'Chào buổi chiều, {name}' : 'Chào buổi tối, {name}';
   // the salutation and the name are styled apart (italic serif + upright name), so build both parts as text nodes
   const loc = locLabel();
-  const sig = I.get()+'|'+key+'|'+me.name+'|'+loc; if(el.dataset.sig===sig) return; el.dataset.sig = sig;
+  const sig = I.get()+'|'+key+'|'+me.name+'|'+(loc? loc.w+'|'+loc.n : ''); if(el.dataset.sig===sig) return; el.dataset.sig = sig;
   const [pre, post=''] = L(key, {name:'\u2063'}).split('\u2063');
   const nm = document.createElement('span'); nm.className='g-name'; nm.textContent = me.name;
   const parts = [document.createTextNode(pre), nm, document.createTextNode(post)];
-  if(loc){ const lc = document.createElement('span'); lc.className='g-loc'; lc.textContent = ' – ' + loc; parts.push(lc); }
+  if(loc){ // full place on wide screens, shortened on phones/tablets (CSS picks one)
+    const lc = document.createElement('span'); lc.className='g-loc';
+    const w = document.createElement('span'); w.className='loc-w'; w.textContent = ' – ' + loc.w;
+    const n = document.createElement('span'); n.className='loc-n'; n.textContent = ' – ' + loc.n;
+    lc.append(w, n); parts.push(lc); }
   el.replaceChildren(...parts);
 }
 
 /* ---------- location shown in the greeting (per device) ----------
-   auto: the device's position (GPS, Wi-Fi or network; the browser asks once), rounded to ~1 km and turned into a
-   city name by BigDataCloud's free client-side reverse geocoder, in the interface language; refreshed every 3 hours.
+   auto: the device's position (GPS, Wi-Fi or network; the browser asks once), rounded to ~100 m and turned into a
+   ward + city name by BigDataCloud's free client-side reverse geocoder, in the interface language; refreshed every 3 hours.
    manual: a city typed in Settings (for desktops without location). off: no location. */
 const LOC_KEY = 'stc.loc';
 function locState(){ try{ return JSON.parse(localStorage.getItem(LOC_KEY)) || {mode:'auto'}; }catch(e){ return {mode:'auto'}; } }
 function saveLoc(st){ try{ localStorage.setItem(LOC_KEY, JSON.stringify(st)); }catch(e){} }
-function locLabel(){ const st = locState(); if(st.mode==='off') return ''; if(st.mode==='manual') return (st.city||'').trim(); const n = st.auto?.names||{}; return n[I.get()] || n.vi || n.en || ''; }
-/** City name the way map and weather apps show it: "TP. Hồ Chí Minh", "TP. Vũng Tàu", "Hà Nội", "London", "ホーチミン市". */
+/** {w: wide label, n: narrow label}; '' when nothing to show. */
+function locLabel(){ const st = locState(); if(st.mode==='off') return '';
+  if(st.mode==='manual'){ const c=(st.city||'').trim(); return c? {w:c, n:c} : ''; }
+  const n = st.auto?.names||{}, v = n[I.get()] || n.vi || n.en || '';
+  return typeof v==='string'? (v? {w:v, n:v} : '') : v; }
+/** BigDataCloud client-side reverse geocoder (free, no key) and helpers to compare place names. */
 const geoUrl = (p, lang) => `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${p.lat}&longitude=${p.lon}&localityLanguage=${lang}`;
 const stripPlace = s => String(s||'').trim().replace(/^(Thành phố|Tỉnh|Thủ đô|City of)\s+/i,'');
 const placeKey = s => noAccent(stripPlace(s)).replace(/\s+city$/,'');
-/** Since the 2025 merger many well-known cities (Vũng Tàu, Biên Hòa, Đà Lạt, Hạ Long…) are wards of a larger
-    province; the geocoder still lists the former city as an "informative" place (Vietnamese data only). */
-function formerCity(j){
-  if(j.countryCode!=='VN') return '';
-  const main = j.city || j.locality || j.principalSubdivision;
-  const isCity = a => /^(Thành phố|City of)\s/i.test(a.name) || /^(thành phố|city|town)(\s|$)/i.test(a.description||'') || /\b(city|town) (in|of)\b/i.test(a.description||'');
-  const skip = a => /province|diocese|ecclesiastical|giáo|\//i.test(a.name) || placeKey(a.name)===placeKey(j.principalSubdivision) || placeKey(a.name)===placeKey(main);
-  const old = (j.localityInfo?.informative||[]).find(a=>a.name && isCity(a) && !skip(a));
-  return old? stripPlace(old.name) : '';
+/** Ward (phường / xã / đặc khu) and province-level unit after the 2025 merger, in the interface language:
+    "P. Thạnh Mỹ Tây, TP. Hồ Chí Minh" (narrow: "P. Thạnh Mỹ Tây, TP. HCM"), "Thanh My Tay, Ho Chi Minh City".
+    Abroad: district and city, "Westminster, London" (narrow: "London"). */
+function placeLabel(j, lang){
+  const adm = j.localityInfo?.administrative || [];
+  if(j.countryCode==='VN'){
+    const lvl6 = adm.filter(a=>a.adminLevel===6), ward = lvl6.find(a=>a.description) || lvl6[0];
+    const lvl4 = adm.filter(a=>a.adminLevel===4);
+    const sq = s => noAccent(stripPlace(s)).replace(/\s+/g,'').replace(/city$/,'');
+    let prov = (lvl4.find(a=>sq(a.name)===sq(j.city)) && j.city) || lvl4.sort((a,b)=>b.name.length-a.name.length)[0]?.name || j.principalSubdivision || '';
+    let wardName = ward? String(ward.name).replace(/^(Phường|Phuong|Xã|Xa|Đặc khu|Ward)\s+/i,'').trim() : '';
+    if(lang==='vi'){
+      const desc = String(ward?.description||'').toLowerCase(), raw = String(ward?.name||'');
+      const pre = /^xã/.test(desc) || /^(Xã|Xa)\s/i.test(raw) ? 'X. ' : /^đặc khu/.test(desc) ? 'ĐK. ' : wardName ? 'P. ' : '';
+      const p4 = lvl4[0], isCity = /^Thành phố\s/i.test(prov) || /^thành phố/i.test(p4?.description||'');
+      prov = stripPlace(prov); const provW = isCity && !/^Hà Nội$/i.test(prov) ? 'TP. '+prov : prov;
+      const provN = /^Hồ Chí Minh$/i.test(prov)? 'TP. HCM' : provW;
+      const wardTxt = wardName && placeKey(wardName)!==placeKey(prov) ? pre+wardName : '';
+      return {w:[wardTxt, provW].filter(Boolean).join(', '), n:[wardTxt, provN].filter(Boolean).join(', ')};
+    }
+    const provN = /ho chi minh/i.test(noAccent(prov)) ? (lang==='en'? 'HCMC' : prov) : prov;
+    const wardTxt = wardName && placeKey(wardName)!==placeKey(prov) ? wardName : '';
+    return {w:[wardTxt, prov].filter(Boolean).join(', '), n:[wardTxt, provN].filter(Boolean).join(', ')};
+  }
+  const city = String(j.city || j.principalSubdivision || '').trim();
+  const district = String(j.locality||'').replace(/^(City of|Thành phố)\s+/i,'').trim();
+  const w = district && placeKey(district)!==placeKey(city) ? district+', '+city : city;
+  return {w, n: city || w};
 }
-function cleanCity(j, lang){
-  const raw = String(j.city || j.locality || j.principalSubdivision || '').trim();
-  const old = formerCity(j);
-  const c = old || stripPlace(raw), tp = !!old || /^Thành phố\s/i.test(raw);
-  return lang==='vi' && tp && c && !/^Hà Nội$/i.test(c) ? 'TP. '+c : c;
-}
-/** Vietnamese place name without accents, for the English/Japanese interface: "Vũng Tàu" → "Vung Tau". */
-const romanize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D');
 let locBusy = false;
 async function refreshLocation(force=false){
   const st = locState(); if(st.mode!=='auto' || locBusy || !navigator.geolocation) return;
   const lang = I.get(), fresh = st.auto && Date.now()-st.auto.at < 3*3600e3;
-  if(!force && fresh && st.auto.names?.[lang]) return;
+  if(!force && fresh && st.auto.names?.[lang] && typeof st.auto.names[lang]==='object') return;
   locBusy = true;
   try{
     const pos = (fresh && !force)? {lat:st.auto.lat, lon:st.auto.lon}
-      : await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(p=>res({lat:+p.coords.latitude.toFixed(2), lon:+p.coords.longitude.toFixed(2)}), rej, {maximumAge:3600e3, timeout:15000, enableHighAccuracy:false}));
+      : await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(p=>res({lat:+p.coords.latitude.toFixed(3), lon:+p.coords.longitude.toFixed(3)}), rej, {maximumAge:600e3, timeout:20000, enableHighAccuracy:true}));
     const get = async l => (await fetch(geoUrl(pos, l))).json();
-    let j = await get(lang), name;
-    if(lang==='vi') name = j.countryCode && j.countryCode!=='VN' ? cleanCity(await get('en'), 'en')   // abroad: London, not Luân Đôn
-                         : cleanCity(j, 'vi');
-    else { // a former Vietnamese city is only found in Vietnamese data; show it unaccented (Vung Tau)
-      const old = j.countryCode==='VN' ? formerCity(await get('vi')) : '';
-      name = old ? romanize(old) : cleanCity(j, lang);
-    }
+    const j = await get(lang);
+    // abroad the Vietnamese interface uses international names: London, not Luân Đôn
+    const name = lang==='vi' && j.countryCode && j.countryCode!=='VN' ? placeLabel(await get('en'), 'en') : placeLabel(j, lang);
     const same = st.auto && st.auto.lat===pos.lat && st.auto.lon===pos.lon;
     const cur = locState();
     saveLoc({...cur, denied:false, auto:{lat:pos.lat, lon:pos.lon, at: same && fresh? st.auto.at : Date.now(), names:{...(same? st.auto.names : {}), [lang]:name}}});
@@ -1460,13 +1519,13 @@ function viewLocation(){
   return `<div class="card section-gap"><div class="card-h"><h2>${L('Vị trí trong lời chào')}</h2><span class="sub">${L('Lưu riêng trên thiết bị này')}</span></div>
     <div class="seg" role="group" aria-label="${L('Vị trí trong lời chào')}">${modes.map(([k,l])=>`<button type="button" data-loc-mode="${k}" aria-pressed="${(st.mode||'auto')===k}">${l}</button>`).join('')}</div>
     ${st.mode==='manual'? `<div class="field" style="margin-top:12px;max-width:420px"><label for="locCity">${L('Thành phố / tỉnh')}</label><input class="input" id="locCity" maxlength="60" value="${esc(st.city||'')}" placeholder="${L('vd: TP. Hồ Chí Minh, Hà Nội, London')}"></div>`
-      : (st.mode||'auto')==='auto'? `<p class="hint" style="margin:12px 0 0">${st.denied? L('Trình duyệt chưa cho phép truy cập vị trí. Hãy cho phép trong cài đặt của trình duyệt/điện thoại, hoặc chọn “Nhập tay”.') : cur? L('Đang hiển thị: {city}', {city:`<b>${esc(cur)}</b>`}) : L('Đang xác định vị trí…')} <button type="button" class="btn xs ghost" data-loc-refresh>${L('Cập nhật vị trí')}</button></p>
-        <p class="hint" style="margin:6px 0 0">${L('Chỉ dùng tên thành phố cho lời chào; vị trí được làm tròn khoảng 1 km và không lưu trên máy chủ.')}</p>` : ''}
+      : (st.mode||'auto')==='auto'? `<p class="hint" style="margin:12px 0 0">${st.denied? L('Trình duyệt chưa cho phép truy cập vị trí. Hãy cho phép trong cài đặt của trình duyệt/điện thoại, hoặc chọn “Nhập tay”.') : cur? L('Đang hiển thị: {city}', {city:`<b>${esc(cur.w)}</b>`}) : L('Đang xác định vị trí…')} <button type="button" class="btn xs ghost" data-loc-refresh>${L('Cập nhật vị trí')}</button></p>
+        <p class="hint" style="margin:6px 0 0">${L('Chỉ dùng tên phường/xã và tỉnh/thành cho lời chào; vị trí được làm tròn khoảng 100 m và không lưu trên máy chủ.')}</p>` : ''}
   </div>`;
 }
 function setLang(v){ if(!I.LANGS[v] || v===I.get()) return; I.set(v); }
 function paintLangSel(){ const s=$('#langSel'); if(s) s.value = I.get(); const c=$('#langCode'); if(c) c.textContent = I.LANGS[I.get()].short; }
-const ROLE_LABEL = i18nize({owner:'Admin', member:'Thành viên', viewer:'Chỉ xem'});
+const ROLE_LABEL = i18nize({owner:'Chủ nhà', member:'Thành viên', viewer:'Chỉ xem'});
 const ROLE_HINT = i18nize({owner:'Toàn quyền, quản lý thành viên và khôi phục dữ liệu', member:'Ghi chép và sửa dữ liệu', viewer:'Chỉ xem, không sửa được'});
 let restoreData=null;
 function viewMembers(){
@@ -1494,7 +1553,7 @@ function viewMembers(){
         </div>
         <p class="hint" id="am-hint" style="margin:0">${memberHint('member')}</p>
         <div><button class="btn primary" type="submit">${L('Thêm thành viên')}</button></div>
-      </form>` : `<p class="hint">${L('Chỉ Admin mới thêm hoặc xóa được thành viên.')}</p>`}
+      </form>` : `<p class="hint">${L('Chỉ Chủ nhà mới thêm hoặc xóa được thành viên.')}</p>`}
     </div>
     <div class="stack">
       <div class="card"><div class="card-h"><h2>${L('Đổi mật khẩu của bạn')}</h2></div>
@@ -1561,7 +1620,7 @@ function render(){
   const ready = Object.values(S.loaded).every(Boolean);
   if(S.conn==='off' && !ready) html = viewOffline();
   else if(!ready) html = viewLoading();
-  else html = yearBanner() + (S.canWrite?'':`<div class="banner">${L('Tài khoản của bạn chỉ có quyền xem. Nhờ Admin đổi vai trò thành “Thành viên” để ghi chép.')}</div>`) +
+  else html = yearBanner() + (S.canWrite?'':`<div class="banner">${L('Tài khoản của bạn chỉ có quyền xem. Nhờ Chủ nhà đổi vai trò thành “Thành viên” để ghi chép.')}</div>`) +
     ({overview:viewOverview, spending:viewSpending, invest:viewInvest, deposits:viewDeposits, emergency:viewEmergency, kids:viewKids, settings:viewSettings}[S.view] || viewOverview)();
   $('#main').innerHTML = html;
   hydrateAvatars();
@@ -1615,6 +1674,7 @@ document.addEventListener('change', e=>{
   txt.dispatchEvent(new Event('input',{bubbles:true}));
 });
 main.addEventListener('pointermove', chartPointer);
+main.addEventListener('contextmenu', e=>{ if(e.target.closest && e.target.closest('.chart,.donut')) e.preventDefault(); });
 main.addEventListener('pointerdown', chartPointer);
 main.addEventListener('pointerleave', chartLeave, true);
 
