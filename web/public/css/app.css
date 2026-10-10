@@ -619,12 +619,15 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 .pw-toggle .ico{width:20px;height:20px}
 /* ---------- privacy mode: amounts show as ********* until the eye is tapped again ---------- */
 .hero-label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.eye-btn{display:inline-grid;place-items:center;width:30px;height:30px;margin:-6px 0;border:0;border-radius:8px;background:rgba(255,255,255,.08);color:var(--hero-gold);cursor:pointer}
+.eye-btn{display:inline-grid;place-items:center;width:34px;height:34px;margin:0;border:0;border-radius:8px;background:rgba(255,255,255,.08);color:var(--hero-gold);cursor:pointer}
 .eye-btn:hover{background:rgba(255,255,255,.16)}
 .eye-btn .ico{width:17px;height:17px}
-@media (pointer:coarse){.eye-btn{width:40px;height:40px;margin:-10px 0}}
+@media (pointer:coarse){.eye-btn{width:42px;height:42px}}
 /* amounts are rendered as **** by the app; inputs holding amounts show dots until tapped */
-.privacy :is([data-budget],[data-opening],[data-nav],[data-cfg-amount],[data-exact],[data-mfield]):not(:focus){-webkit-text-security:disc}
+.hero-nav-row{display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:nowrap;min-width:0}
+.hero-nav-row .hero-nav{margin-top:0;min-width:0}
+.hero-nav-row .eye-btn{margin:0;flex:none}
+[data-masked]{letter-spacing:.06em}
 @media (max-width:900px){
   .top .privacy-btn{position:absolute;top:0;right:52px}
   .top-title{padding-right:104px}

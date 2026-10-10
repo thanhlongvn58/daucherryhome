@@ -166,6 +166,8 @@ const vnd = n => isPrivate()? MASK : I.int(n);
 const compact = n => isPrivate()? MASK : I.compact(n);
 const pct = (x,d=1) => (!isFinite(x)? '—' : (x>=0?'+':'−')+I.num(Math.abs(x*100),d,d)+'%');
 const pctPlain = (x,d=1) => (!isFinite(x)? '—' : I.num(x*100,d,d)+'%');
+/** Placeholder for a month without figures (masked like any amount in privacy mode). */
+const blank = () => isPrivate()? MASK : '·';
 const signed = n => isPrivate()? MASK : (n>0?'+':n<0?'−':'')+vnd(Math.abs(n));
 const signedC = n => isPrivate()? MASK : (n>0?'+':n<0?'−':'')+compact(Math.abs(n));
 const fmt1 = n => I.num(n,1);
@@ -745,8 +747,8 @@ function heroCard(){
   return `<section class="hero" aria-label="${L('Tổng tài sản ròng')}">
     <div class="hero-row">
       <div style="min-width:0">
-        <div class="eyebrow hero-label">${label}<button type="button" class="eye-btn" data-privacy aria-pressed="${isPrivate()}" aria-label="${isPrivate()? L('Hiện số tiền') : L('Ẩn số tiền')}" title="${isPrivate()? L('Hiện số tiền') : L('Ẩn số tiền')}">${privacyBtnInner()}</button></div>
-        <div class="hero-nav">${N.total? vnd(N.total) : '—'}<small>₫</small></div>
+        <div class="eyebrow">${label}</div>
+        <div class="hero-nav-row"><div class="hero-nav">${N.total||isPrivate()? vnd(N.total) : '—'}<small>₫</small></div><button type="button" class="eye-btn" data-privacy aria-pressed="${isPrivate()}" aria-label="${isPrivate()? L('Hiện số tiền') : L('Ẩn số tiền')}" title="${isPrivate()? L('Hiện số tiền') : L('Ẩn số tiền')}">${privacyBtnInner()}</button></div>
         <div class="hero-meta">${prevNav && N.total? `<span>${L('So với cuối {py}:', {py:y-1})} <b class="up">${pct(growth)}</b> <span class="m">(${signedC(N.total-prevNav)})</span></span>`:''}<span>${L('Thu {y}:', {y})} <b>${compact(yt.income)}</b></span><span>${L('Chi {y}:', {y})} <b>${compact(yt.exp)}</b></span></div>
       </div>
       <div class="hero-years" aria-hidden="true">${hv.map(h=>`<div class="hy ${h.now?'now':''}"><span class="v">${compact(h.v)}</span><span class="bar" style="height:${Math.max(4,60*h.v/hmax)}px"></span><span>${h.y}</span></div>`).join('')}</div>
@@ -881,10 +883,10 @@ function viewSpending(){
     <div class="tbl-wrap"><table class="sum-tbl">
       <thead><tr><th>${L('Khoản mục')}</th>${agg.map((a,i)=>`<th class="${i===m-1?'cur':''}">${mShort(i+1)}</th>`).join('')}<th>${L('Cả năm')}</th></tr></thead>
       <tbody>
-        <tr class="click"><td><b>${L('Thu nhập')}</b></td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.income?'':'zero'}" data-goto="${i+1}">${a.income?vnd(a.income):'·'}</td>`).join('')}<td><b>${vnd(yt.income)}</b></td></tr>
-        ${CATS.map(cc=>`<tr><td><i class="swatch" style="background:var(--c-${cc.id});margin-right:7px"></i>${cc.name}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.cats[cc.id]?'':'zero'}" data-goto="${i+1}">${a.cats[cc.id]?vnd(a.cats[cc.id]):'·'}</td>`).join('')}<td>${vnd(yt.cats[cc.id])}</td></tr>`).join('')}
-        <tr class="total"><td>${L('Tổng chi')}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''}" data-goto="${i+1}">${a.exp?vnd(a.exp):'·'}</td>`).join('')}<td>${vnd(yt.exp)}</td></tr>
-        <tr><td>${L('Thặng dư / lỗ')}</td>${agg.map((a,i)=>{const d=a.income-a.exp; return `<td class="${i===m-1?'cur':''} ${!a.n?'zero':d<0?'neg':'pos'}" data-goto="${i+1}">${a.n?vnd(d):'·'}</td>`;}).join('')}<td class="${yt.income-yt.exp<0?'neg':'pos'}">${vnd(yt.income-yt.exp)}</td></tr>
+        <tr class="click"><td><b>${L('Thu nhập')}</b></td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.income?'':'zero'}" data-goto="${i+1}">${a.income?vnd(a.income):blank()}</td>`).join('')}<td><b>${vnd(yt.income)}</b></td></tr>
+        ${CATS.map(cc=>`<tr><td><i class="swatch" style="background:var(--c-${cc.id});margin-right:7px"></i>${cc.name}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.cats[cc.id]?'':'zero'}" data-goto="${i+1}">${a.cats[cc.id]?vnd(a.cats[cc.id]):blank()}</td>`).join('')}<td>${vnd(yt.cats[cc.id])}</td></tr>`).join('')}
+        <tr class="total"><td>${L('Tổng chi')}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''}" data-goto="${i+1}">${a.exp?vnd(a.exp):blank()}</td>`).join('')}<td>${vnd(yt.exp)}</td></tr>
+        <tr><td>${L('Thặng dư / lỗ')}</td>${agg.map((a,i)=>{const d=a.income-a.exp; return `<td class="${i===m-1?'cur':''} ${!a.n?'zero':d<0?'neg':'pos'}" data-goto="${i+1}">${a.n?vnd(d):blank()}</td>`;}).join('')}<td class="${yt.income-yt.exp<0?'neg':'pos'}">${vnd(yt.income-yt.exp)}</td></tr>
       </tbody></table></div>
   </div>
 
@@ -1255,6 +1257,15 @@ function setPrivacy(on){
   paintPrivacy();
 }
 /** Open eye = amounts shown (tap to hide); crossed eye = amounts hidden (tap to show). */
+/* Amount inputs in privacy mode: the value is swapped for ********* while the field is not being edited. */
+const MASK_INPUTS = '[data-budget],[data-opening],[data-nav],[data-cfg-amount],[data-exact],[data-mfield]';
+function maskInputs(root=document){
+  if(!isPrivate()) return;
+  $$(MASK_INPUTS, root).forEach(el=>{ if(el===document.activeElement || el.dataset.masked) return; el.dataset.real = el.value; el.value = MASK; el.dataset.masked = '1'; });
+}
+function unmaskInput(el){ if(!el || !el.dataset.masked) return; el.value = el.dataset.real; delete el.dataset.masked; delete el.dataset.real; try{ el.setSelectionRange(el.value.length, el.value.length); }catch(e){} }
+document.addEventListener('focusin', e=>{ if(e.target.matches && e.target.matches(MASK_INPUTS)) unmaskInput(e.target); });
+document.addEventListener('focusout', e=>{ const el=e.target; if(el.matches && el.matches(MASK_INPUTS)) setTimeout(()=>{ if(el.isConnected && document.activeElement!==el) maskInputs(el.parentElement||document); }, 0); });
 function privacyBtnInner(){ return ico(isPrivate()? EYE_OFF : EYE); }
 function paintPrivacy(){
   const label = isPrivate()? L('Hiện số tiền') : L('Ẩn số tiền');
@@ -1384,6 +1395,7 @@ function render(){
     ({overview:viewOverview, spending:viewSpending, invest:viewInvest, deposits:viewDeposits, emergency:viewEmergency, kids:viewKids, settings:viewSettings}[S.view] || viewOverview)();
   $('#main').innerHTML = html;
   hydrateAvatars();
+  maskInputs($('#main'));
 }
 document.addEventListener('focusout', ()=>{ setTimeout(()=>{ if(pendingRender) render(); }, 0); });
 async function hydrateAvatars(){
@@ -1691,7 +1703,7 @@ function liveGroup(input){
   if(!changed) return;
   const before = raw.slice(0,pos).replace(/[^\d+]/g,'').length; input.value = out; keepCaret(input, out, before, /[\d+]/);
 }
-const readExactAmount = el => { const d = String(el.value).replace(/\D/g,''); return d? +d : NaN; };
+const readExactAmount = el => { const d = String(el.dataset.masked? el.dataset.real : el.value).replace(/\D/g,''); return d? +d : NaN; };
 const depMaturity = d => d.maturity || addMonths(d.start, +d.term||1);
 
 function openDeposit(doc=null){
