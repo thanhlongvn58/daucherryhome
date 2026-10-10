@@ -1,0 +1,84 @@
+/* Sign-in page — "Dau & Cherry Home" cover: deep green panel with a serif headline and leaves,
+   cream sign-in panel. Loaded after app.css; everything is scoped to body.lg. */
+body.lg{
+  --lg-green-1:#0F3A28; --lg-green-2:#1C4D36; --lg-gold:#D8B572; --lg-gold-soft:rgba(216,181,114,.55);
+  --lg-cream:#FAF7EF; --lg-card-ink:#1B4A35; --lg-ink:#25332B; --lg-muted:#6D746C; --lg-eyebrow:#9A7B52;
+  --lg-input:#FFFDF8; --lg-line:#E4DDCC; --lg-serif:"Playfair Display","Be Vietnam Pro",Georgia,serif;
+  margin:0; background:var(--lg-cream); color:var(--lg-ink);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) body.lg{--lg-cream:#0E1712; --lg-card-ink:#E9E2CF; --lg-ink:#E6E8E3; --lg-muted:#A3AAA2; --lg-eyebrow:#C9A874; --lg-input:#14211A; --lg-line:#2A3A30}
+}
+:root[data-theme="dark"] body.lg{--lg-cream:#0E1712; --lg-card-ink:#E9E2CF; --lg-ink:#E6E8E3; --lg-muted:#A3AAA2; --lg-eyebrow:#C9A874; --lg-input:#14211A; --lg-line:#2A3A30}
+:root:lang(ja) body.lg{--lg-serif:"Playfair Display","Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif}
+
+.lg-page{position:relative;min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(0,1.18fr) minmax(0,1fr);overflow:hidden}
+
+/* ---------- cover ---------- */
+.lg-cover{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:40px;padding:clamp(32px,4.4vw,64px) clamp(28px,5.4vw,96px) 40px;color:#F4EFE3;
+  background:radial-gradient(90% 70% at 18% 8%,rgba(255,255,255,.05),transparent 60%),linear-gradient(160deg,var(--lg-green-2) 0%,var(--lg-green-1) 70%,#0B2E20 100%)}
+.lg-cover>*:not(.lg-leaves):not(.lg-arc){position:relative;z-index:1}
+.lg-brand{display:flex;align-items:center;gap:16px}
+.lg-logo{width:clamp(60px,4.6vw,88px);height:auto;flex:none}
+.lg-brand b{display:block;font-family:var(--lg-serif);font-weight:500;font-size:clamp(22px,2vw,28px);letter-spacing:.005em;color:#F4EFE3;line-height:1.15}
+.lg-brand span{display:block;margin-top:4px;font-size:14.5px;font-weight:300;color:rgba(244,239,227,.82)}
+.lg-copy{margin:auto 0;padding-bottom:12vh}
+.lg-headline{margin:0;font-family:var(--lg-serif);font-weight:500;font-size:clamp(40px,5.3vw,78px);line-height:1.04;letter-spacing:-.012em;color:#F7F2E6}
+.lg-lede{margin:clamp(18px,2.2vw,28px) 0 0;max-width:40ch;font-size:clamp(15px,1.35vw,19px);font-weight:300;line-height:1.6;color:rgba(244,239,227,.9)}
+.lg-quote{margin:clamp(26px,3vw,44px) 0 0;font-family:var(--lg-serif);font-style:italic;font-weight:400;font-size:clamp(17px,1.5vw,22px);color:var(--lg-gold)}
+.lg-sign{margin:0;font-size:13px;color:rgba(244,239,227,.78);letter-spacing:.01em}
+.lg-leaves{position:absolute;left:-30px;bottom:6%;width:clamp(260px,30vw,430px);height:auto;pointer-events:none;z-index:0}
+.lg-arc{position:absolute;border-radius:50%;border:1px solid var(--lg-gold-soft);pointer-events:none}
+.lg-arc-top{width:520px;height:520px;right:-300px;top:-330px;opacity:.8}
+.lg-arc-cross{width:1100px;height:1100px;left:calc(54% - 440px);top:calc(100% - 360px);z-index:1;opacity:.75}
+
+/* ---------- sign-in panel ---------- */
+.lg-main{position:relative;z-index:2;display:grid;place-items:center;padding:72px clamp(20px,5vw,72px) 48px;background:var(--lg-cream)}
+.lg-tools{position:absolute;top:18px;right:18px;display:flex;gap:8px;align-items:center}
+.lg-tools .lang-sel,.lg-tools .icon-btn{background:transparent;border-color:var(--lg-line);color:var(--lg-card-ink)}
+.lg-tools .lang-sel .lang-code{color:var(--lg-card-ink)}
+.lg-card{width:min(470px,100%);display:flex;flex-direction:column;gap:20px}
+.lg-head{margin-bottom:10px}
+.lg-eyebrow{margin:0 0 18px;font-size:13px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--lg-eyebrow)}
+.lg-card h1{margin:0;font-family:var(--lg-serif);font-weight:600;font-size:clamp(36px,3.6vw,52px);line-height:1.08;letter-spacing:-.01em;color:var(--lg-card-ink)}
+.lg-lead{margin:16px 0 0;font-size:15.5px;font-weight:300;color:var(--lg-muted);line-height:1.55}
+.lg-card .field label{font-size:14.5px;font-weight:500;color:var(--lg-card-ink)}
+.lg-card .input{height:56px;padding:0 16px;border-radius:10px;border:1px solid var(--lg-line);background:var(--lg-input);color:var(--lg-ink);font-size:16px;box-shadow:inset 0 1px 2px rgba(60,48,20,.04)}
+.lg-card .input:focus{outline:none;border-color:var(--lg-card-ink);box-shadow:0 0 0 3px rgba(27,74,53,.12)}
+.lg-card .pw-wrap .input{padding-right:56px}
+.lg-card .pw-toggle{right:8px;color:var(--lg-muted)}
+.lg-card .pw-toggle:hover,.lg-card .pw-toggle[aria-pressed="true"]{color:var(--lg-card-ink);background:transparent}
+.lg-card .remember b{font-weight:500;color:var(--lg-card-ink)}
+.lg-card .remember small{color:var(--lg-muted)}
+.lg-card .remember input{accent-color:#1B4A35}
+.lg-submit{height:60px;min-height:60px;border-radius:10px;font-size:18px;font-weight:500;letter-spacing:.01em;background:#174A33;border-color:#174A33;color:#F7F2E6;margin-top:4px}
+.lg-submit:hover{background:#0F3A28}
+.lg-foot{margin:6px 0 0;font-size:14.5px;font-weight:300;color:var(--lg-muted)}
+.lg-private{display:flex;align-items:center;gap:16px;margin-top:34px;color:var(--lg-card-ink)}
+.lg-private svg{width:34px;height:34px;flex:none}
+.lg-private span{padding-left:16px;border-left:1px solid var(--lg-line);font-size:14px;font-weight:300;color:var(--lg-muted)}
+.lg-card .form-error,.lg-card .form-info{font-size:13.5px}
+:root:lang(ja) .lg-eyebrow{letter-spacing:.12em}
+
+/* ---------- tablets & phones: cover becomes a compact header ---------- */
+@media (max-width:900px){
+  .lg-page{grid-template-columns:minmax(0,1fr)}
+  .lg-cover{gap:22px;padding:24px 20px 30px}
+  .lg-copy{margin:0;padding:0}
+  .lg-headline{font-size:clamp(30px,8.4vw,44px);max-width:none}
+  .lg-lede{font-size:15px}
+  .lg-quote{margin-top:16px;font-size:17px}
+  .lg-sign,.lg-arc-cross{display:none}
+  .lg-leaves{left:auto;right:-60px;bottom:-40px;width:240px;opacity:.55}
+  .lg-arc-top{width:340px;height:340px;right:-220px;top:-220px}
+  .lg-logo{width:56px;height:47px}
+  .lg-brand b{font-size:21px}
+  .lg-main{place-items:start center;padding:28px 20px 40px}
+  .lg-tools{position:static;justify-content:flex-end;margin:-8px 0 8px;width:100%}
+  .lg-main{display:flex;flex-direction:column;align-items:center}
+  .lg-eyebrow{margin-bottom:12px;font-size:12px}
+  .lg-private{margin-top:18px}
+}
+@media (max-width:420px){
+  .lg-lede{display:none}
+}

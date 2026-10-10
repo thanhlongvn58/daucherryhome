@@ -745,6 +745,16 @@ window.STC_I18N_DICT = {
 "Số tiền rút không vượt quá thặng dư {v} ₫": ["The amount can't exceed the surplus of {v} ₫", "引き出し額は黒字 {v} ₫ を超えられません"],
 "Đã ghi nhận rút {v} ₫": ["Recorded a withdrawal of {v} ₫", "{v} ₫ の引き出しを記録しました"],
 
+/* ---------- sign-in cover (Dau & Cherry Home) ---------- */
+"Sổ tài chính nhà mình": ["Our family finance book", "わが家の家計簿"],
+"Cùng quản lý thu chi, dành dụm có kế hoạch và vun đắp nền tảng vững vàng cho thế hệ mai sau.": ["Managing income and spending together, saving with a plan and building a solid foundation for the next generation.", "家族みんなで収支を管理し、計画的に貯え、次の世代への確かな土台を築きます。"],
+"— Vun đắp bằng yêu thương.": ["— Nurtured with love.", "— 愛で育む。"],
+"Nhà Dâu & Cherry · Cùng vun đắp tương lai": ["The Dâu & Cherry family · Building our future together", "Dâu & Cherry 家 · 共に未来を育む"],
+"Tài chính gia đình": ["Family finance", "家族の家計"],
+"Đăng nhập để cùng chăm lo cho những điều quan trọng.": ["Sign in to look after what matters most, together.", "ログインして、大切なことを一緒に守りましょう。"],
+"Quên mật khẩu? Nhờ người quản lý sổ hỗ trợ.": ["Forgot your password? Ask the book's owner for help.", "パスワードを忘れた場合は、管理者にご相談ください。"],
+"Không gian riêng của gia đình": ["Your family's private space", "家族だけのプライベート空間"],
+
 /* ---------- server messages (shown through errMsg / sign-in) ---------- */
 "Tên đăng nhập gồm 3–32 ký tự: chữ không dấu, số, dấu chấm, gạch ngang.": ["Usernames are 3–32 characters: unaccented letters, digits, dots, hyphens.", "ユーザー名は半角英字・数字・ドット・ハイフンで3～32文字です。"],
 "Tên hiển thị cần 1–40 ký tự.": ["Display names need 1–40 characters.", "表示名は1～40文字で入力してください。"],
