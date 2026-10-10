@@ -697,3 +697,9 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 .tbl-scroll tfoot td{position:sticky;bottom:0;z-index:3}
 .scroll-hint{display:flex;align-items:center;gap:6px;margin:8px 0 0}
 .scroll-hint .ico{width:14px;height:14px}
+/* ---------- phones/tablets: unsaved monthly figures keep the Save bar on screen ---------- */
+@media (max-width:900px){
+  body.m-dirty .fab{display:none}
+  body.m-dirty .mform .mfoot{position:sticky;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:6;margin:14px -15px 0;padding:10px 15px;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -10px 24px -16px rgba(0,0,0,.35)}
+  body.m-dirty .mform .mfoot .unsaved{font-weight:600}
+}

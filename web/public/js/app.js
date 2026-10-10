@@ -1028,6 +1028,7 @@ function updateMonthLive(){
   $('#mt-rate').textContent=pctPlain(inc? s/inc : NaN);
   for(const f of MONTH_FIELDS){ const row=$(`[data-mrow="${f}"]`); if(row) row.classList.toggle('dirty', dv[f].dirty); }
   if($('#mSave')){ $('#mSave').disabled=!dv._dirty; $('#mReset').disabled=!dv._dirty; $('#mUnsaved').hidden=!dv._dirty; }
+  document.body.classList.toggle('m-dirty', !!dv._dirty);   // phones: keep the Save bar in view (see CSS)
 }
 async function saveMonth(){
   const y=S.year, m=S.month, key=ymKey(y,m); const dv = monthDraftValues(y,m);
@@ -1041,7 +1042,7 @@ async function saveMonth(){
     const ref = db.collection('tx').doc(d.mf.baseId);
     if(baseAmt===0){ if(d.mf.base) ops.push(()=>ref.delete()); }
     else ops.push(()=>ref.set({date:lastDayISO(y,m), kind:f==='income'?'income':'expense', cat:f, amount:baseAmt, note:d.mf.base?.note||'',
-      expr: (!d.mf.others.length && String(d.raw).includes('+'))? String(d.raw).trim() : '', src:'month', by:S.meId, at:Date.now()}));
+      expr: '', src:'month', by:S.meId, at:Date.now()}));
   }
   if(dv._note.dirty) ops.push(()=>db.collection('months').doc(key).set({...(S.months[key]||{}), note:String(dv._note.raw).trim(), by:S.meId, at:Date.now()}));
   if(!ops.length) return;
@@ -1626,6 +1627,7 @@ function render(){
   hydrateAvatars();
   maskInputs($('#main'));
   paintBell();
+  document.body.classList.toggle('m-dirty', ready && S.view==='spending' && S.canWrite && monthDraftValues(S.year,S.month)._dirty);
 }
 document.addEventListener('focusout', ()=>{ setTimeout(()=>{ if(pendingRender) render(); }, 0); });
 async function hydrateAvatars(){
@@ -1963,7 +1965,13 @@ document.addEventListener('pointerdown', e=>{
   el.value = v + b.dataset.op; el.setSelectionRange(el.value.length, el.value.length);
   el.dispatchEvent(new Event('input', {bubbles:true}));
 });
-document.addEventListener('change', e=>{ const el = e.target; if(el.matches && el.matches('[data-sum],[data-mfield]')) collapseSum(el); }, true);
+/* Collapse when the field is left: on phones and tablets the keyboard's ✓ / Done only blurs the field, and iOS does
+   not always send "change" for a value the page reformatted while typing, so listen to focusout as well. */
+const collapseIfSum = e=>{ const el = e.target; if(el.matches && el.matches('[data-sum],[data-mfield]')) collapseSum(el); };
+document.addEventListener('focusout', collapseIfSum, true);
+document.addEventListener('change', collapseIfSum, true);
+// Enter / Go on a running total: show the result instead of submitting half-typed sums
+document.addEventListener('keydown', e=>{ const el=e.target; if(e.key==='Enter' && el.matches && el.matches('[data-sum],[data-mfield]') && hasOps(el.value)){ e.preventDefault(); collapseSum(el); } });
 /** Exact amount field in a sheet: formats while typing and reads the amount out in words. */
 function bindExactAmount(input, prev, onChange){
   const upd = ()=>{ const n = formatExact(input); if(prev){ prev.innerHTML = exactPreview(n, input.value); prev.classList.remove('bad'); } if(onChange) onChange(n); };
