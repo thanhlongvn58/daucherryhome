@@ -125,7 +125,7 @@ const GROUPS = [
   {id:'settings', label:'Thiết lập',          tab:'Thiết lập'},
 ].map(g=>i18nize(g,['label','tab']));
 const VIEWS = {
-  overview:  {group:'overview', title:'Tài sản gia đình'},
+  overview:  {group:'overview', title:'Tài chính Gia đình'},
   spending:  {group:'spending', title:'Chi tiêu sinh hoạt'},
   invest:    {group:'invest',   title:'Tiết kiệm & đầu tư'},
   deposits:  {group:'invest',   title:'Sổ tiết kiệm'},
@@ -175,6 +175,9 @@ const pad = n => String(n).padStart(2,'0');
 const toISO = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const todayISO = () => toISO(new Date());
 const fmtDate = iso => iso ? iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4) : '—';
+/** Live clock: "Thứ Bảy, 10/10/2026 08:55:26" (wide) / "T7, 10/10/2026 08:55:26" (narrow, via CSS). */
+const clockHTML = d => { const sep = I.get()==='ja'? ' ' : ', ';
+  return `<span class="wd-l">${I.weekday(d,'long')}${sep}</span><span class="wd-s">${I.weekday(d,'short')}${sep}</span>${fmtDateTime(d)}`; };
 const fmtDateTime = d => pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
 function parseDMY(str){ const m=String(str||'').trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/); if(!m) return null;
   const dt=new Date(+m[3],+m[2]-1,+m[1]); return (dt.getFullYear()===+m[3] && dt.getMonth()===+m[2]-1 && dt.getDate()===+m[1]) ? toISO(dt) : null; }
@@ -741,7 +744,7 @@ function heroCard(){
   for(let k=top-3;k<top;k++){ const t=navAt(k).total; if(t) hv.push({y:k, v:t}); } if(N.total) hv.push({y:top, v:N.total, now:true});
   const hmax = Math.max(1,...hv.map(h=>h.v)); const yt = yearTotals(y);
   const keys = ['savings','kids','risk','emergency'];
-  const label = N.kind==='live' ? `${future? L('Tổng tài sản ròng (NAV) hiện tại') : L('Tổng tài sản ròng (NAV)')} · <span class="num" data-clock>${fmtDateTime(new Date())}</span>`
+  const label = N.kind==='live' ? `${future? L('Tổng tài sản ròng (NAV) hiện tại') : L('Tổng tài sản ròng (NAV)')} · <span class="num" data-clock>${clockHTML(new Date())}</span>`
     : N.kind==='snapshot' ? L('Tài sản ròng chốt cuối năm {y} · 31/12/{y}', {y})
     : N.kind==='estimate' ? L('Tài sản ròng cuối năm {y} · ước tính từ sổ quỹ', {y}) : L('Chưa có số liệu tài sản ròng năm {y}', {y});
   return `<section class="hero" aria-label="${L('Tổng tài sản ròng')}">
@@ -1224,6 +1227,7 @@ function viewSettings(){
       </div>
     </div>
   </div>
+  ${viewLocation()}
   ${viewLanguage()}
   ${viewAppearance()}
   ${viewMembers()}`;
@@ -1289,10 +1293,77 @@ function paintGreeting(){
   const h=new Date().getHours();
   const key = h>=5 && h<12 ? 'Chào buổi sáng, {name}' : h>=12 && h<18 ? 'Chào buổi chiều, {name}' : 'Chào buổi tối, {name}';
   // the salutation and the name are styled apart (italic serif + upright name), so build both parts as text nodes
-  const sig = I.get()+'|'+key+'|'+me.name; if(el.dataset.sig===sig) return; el.dataset.sig = sig;
+  const loc = locLabel();
+  const sig = I.get()+'|'+key+'|'+me.name+'|'+loc; if(el.dataset.sig===sig) return; el.dataset.sig = sig;
   const [pre, post=''] = L(key, {name:'\u2063'}).split('\u2063');
   const nm = document.createElement('span'); nm.className='g-name'; nm.textContent = me.name;
-  el.replaceChildren(document.createTextNode(pre), nm, document.createTextNode(post));
+  const parts = [document.createTextNode(pre), nm, document.createTextNode(post)];
+  if(loc){ const lc = document.createElement('span'); lc.className='g-loc'; lc.textContent = ' – ' + loc; parts.push(lc); }
+  el.replaceChildren(...parts);
+}
+
+/* ---------- location shown in the greeting (per device) ----------
+   auto: the device's position (GPS, Wi-Fi or network; the browser asks once), rounded to ~1 km and turned into a
+   city name by BigDataCloud's free client-side reverse geocoder, in the interface language; refreshed every 3 hours.
+   manual: a city typed in Settings (for desktops without location). off: no location. */
+const LOC_KEY = 'stc.loc';
+function locState(){ try{ return JSON.parse(localStorage.getItem(LOC_KEY)) || {mode:'auto'}; }catch(e){ return {mode:'auto'}; } }
+function saveLoc(st){ try{ localStorage.setItem(LOC_KEY, JSON.stringify(st)); }catch(e){} }
+function locLabel(){ const st = locState(); if(st.mode==='off') return ''; if(st.mode==='manual') return (st.city||'').trim(); const n = st.auto?.names||{}; return n[I.get()] || n.vi || n.en || ''; }
+/** City name the way map and weather apps show it: "TP. Hồ Chí Minh", "TP. Vũng Tàu", "Hà Nội", "London", "ホーチミン市". */
+const geoUrl = (p, lang) => `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${p.lat}&longitude=${p.lon}&localityLanguage=${lang}`;
+const stripPlace = s => String(s||'').trim().replace(/^(Thành phố|Tỉnh|Thủ đô|City of)\s+/i,'');
+const placeKey = s => noAccent(stripPlace(s)).replace(/\s+city$/,'');
+/** Since the 2025 merger many well-known cities (Vũng Tàu, Biên Hòa, Đà Lạt, Hạ Long…) are wards of a larger
+    province; the geocoder still lists the former city as an "informative" place (Vietnamese data only). */
+function formerCity(j){
+  if(j.countryCode!=='VN') return '';
+  const main = j.city || j.locality || j.principalSubdivision;
+  const isCity = a => /^(Thành phố|City of)\s/i.test(a.name) || /^(thành phố|city|town)(\s|$)/i.test(a.description||'') || /\b(city|town) (in|of)\b/i.test(a.description||'');
+  const skip = a => /province|diocese|ecclesiastical|giáo|\//i.test(a.name) || placeKey(a.name)===placeKey(j.principalSubdivision) || placeKey(a.name)===placeKey(main);
+  const old = (j.localityInfo?.informative||[]).find(a=>a.name && isCity(a) && !skip(a));
+  return old? stripPlace(old.name) : '';
+}
+function cleanCity(j, lang){
+  const raw = String(j.city || j.locality || j.principalSubdivision || '').trim();
+  const old = formerCity(j);
+  const c = old || stripPlace(raw), tp = !!old || /^Thành phố\s/i.test(raw);
+  return lang==='vi' && tp && c && !/^Hà Nội$/i.test(c) ? 'TP. '+c : c;
+}
+/** Vietnamese place name without accents, for the English/Japanese interface: "Vũng Tàu" → "Vung Tau". */
+const romanize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D');
+let locBusy = false;
+async function refreshLocation(force=false){
+  const st = locState(); if(st.mode!=='auto' || locBusy || !navigator.geolocation) return;
+  const lang = I.get(), fresh = st.auto && Date.now()-st.auto.at < 3*3600e3;
+  if(!force && fresh && st.auto.names?.[lang]) return;
+  locBusy = true;
+  try{
+    const pos = (fresh && !force)? {lat:st.auto.lat, lon:st.auto.lon}
+      : await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(p=>res({lat:+p.coords.latitude.toFixed(2), lon:+p.coords.longitude.toFixed(2)}), rej, {maximumAge:3600e3, timeout:15000, enableHighAccuracy:false}));
+    const get = async l => (await fetch(geoUrl(pos, l))).json();
+    let j = await get(lang), name;
+    if(lang==='vi') name = j.countryCode && j.countryCode!=='VN' ? cleanCity(await get('en'), 'en')   // abroad: London, not Luân Đôn
+                         : cleanCity(j, 'vi');
+    else { // a former Vietnamese city is only found in Vietnamese data; show it unaccented (Vung Tau)
+      const old = j.countryCode==='VN' ? formerCity(await get('vi')) : '';
+      name = old ? romanize(old) : cleanCity(j, lang);
+    }
+    const same = st.auto && st.auto.lat===pos.lat && st.auto.lon===pos.lon;
+    const cur = locState();
+    saveLoc({...cur, denied:false, auto:{lat:pos.lat, lon:pos.lon, at: same && fresh? st.auto.at : Date.now(), names:{...(same? st.auto.names : {}), [lang]:name}}});
+  }catch(e){ if(e && e.code===1) saveLoc({...locState(), denied:true}); }
+  finally{ locBusy = false; paintGreeting(); if(S.view==='settings') scheduleRender(); }
+}
+function viewLocation(){
+  const st = locState(), cur = locLabel();
+  const modes = [['auto',L('Tự động theo thiết bị')],['manual',L('Nhập tay')],['off',L('Tắt')]];
+  return `<div class="card section-gap"><div class="card-h"><h2>${L('Vị trí trong lời chào')}</h2><span class="sub">${L('Lưu riêng trên thiết bị này')}</span></div>
+    <div class="seg" role="group" aria-label="${L('Vị trí trong lời chào')}">${modes.map(([k,l])=>`<button type="button" data-loc-mode="${k}" aria-pressed="${(st.mode||'auto')===k}">${l}</button>`).join('')}</div>
+    ${st.mode==='manual'? `<div class="field" style="margin-top:12px;max-width:420px"><label for="locCity">${L('Thành phố / tỉnh')}</label><input class="input" id="locCity" maxlength="60" value="${esc(st.city||'')}" placeholder="${L('vd: TP. Hồ Chí Minh, Hà Nội, London')}"></div>`
+      : (st.mode||'auto')==='auto'? `<p class="hint" style="margin:12px 0 0">${st.denied? L('Trình duyệt chưa cho phép truy cập vị trí. Hãy cho phép trong cài đặt của trình duyệt/điện thoại, hoặc chọn “Nhập tay”.') : cur? L('Đang hiển thị: {city}', {city:`<b>${esc(cur)}</b>`}) : L('Đang xác định vị trí…')} <button type="button" class="btn xs ghost" data-loc-refresh>${L('Cập nhật vị trí')}</button></p>
+        <p class="hint" style="margin:6px 0 0">${L('Chỉ dùng tên thành phố cho lời chào; vị trí được làm tròn khoảng 1 km và không lưu trên máy chủ.')}</p>` : ''}
+  </div>`;
 }
 function setLang(v){ if(!I.LANGS[v] || v===I.get()) return; I.set(v); }
 function paintLangSel(){ const s=$('#langSel'); if(s) s.value = I.get(); const c=$('#langCode'); if(c) c.textContent = I.LANGS[I.get()].short; }
@@ -1407,7 +1478,7 @@ async function hydrateAvatars(){
 /* real-time interest ticker */
 setInterval(()=>{
   const t = Date.now();
-  $$('[data-clock]').forEach(el=>{ el.textContent = fmtDateTime(new Date(t)); });
+  $$('[data-clock]').forEach(el=>{ el.innerHTML = clockHTML(new Date(t)); });
   const by=$('#brandYear'); if(by && by.textContent!==String(curYear())) by.textContent=curYear();
   if(t%60000<1000) paintGreeting();
   if(S.view!=='deposits' && S.view!=='invest') return;
@@ -1460,6 +1531,8 @@ main.addEventListener('click', async e=>{
   if('privacy' in d){ setPrivacy(!isPrivate()); return; }
   if(d.themeSet){ setTheme(d.themeSet); render(); toast(L('Giao diện: {mode}', {mode:THEME_LABEL[d.themeSet]})); return; }
   if(d.langSet){ setLang(d.langSet); return; }
+  if(d.locMode){ saveLoc({...locState(), mode:d.locMode}); render(); paintGreeting(); if(d.locMode==='auto') refreshLocation(true); return; }
+  if('locRefresh' in d){ refreshLocation(true); toast(L('Đang cập nhật vị trí…')); return; }
   if(d.setYear){ setYear(+d.setYear); return; }
   if('yearNow' in d){ setYear(curYear()); return; }
   if(d.cmp){ S.cmpMode=d.cmp; render(); return; }
@@ -1552,6 +1625,7 @@ main.addEventListener('change', async e=>{
   const el = e.target; const d = el.dataset;
   if(el.type==='radio' && d.draft){ S.drafts[d.draft]=el.value; return; }
   if(d.memberRole){ try{ const m = await FIN.updateMember(d.memberRole, {role:el.value}); toast(`${m.name}: ${ROLE_LABEL[m.role]}`); }catch(err){ toast(errMsg(err)); render(); } return; }
+  if(el.id==='locCity'){ saveLoc({...locState(), city:el.value.trim()}); paintGreeting(); toast(L('Đã lưu vị trí')); return; }
   if(el.id==='am-role'){ $('#am-hint').textContent = memberHint(el.value); return; }
   if(el.id==='restoreFile'){ restoreData=null; $('#restoreBtn').disabled=true; const file = el.files && el.files[0]; if(!file) return;
     try{ const obj = JSON.parse(await file.text()); if(!obj || !Array.isArray(obj.tx)) throw new Error('bad'); restoreData=obj; $('#restoreBtn').disabled=false; toast(L('Tệp hợp lệ: {a} thu chi, {b} biến động quỹ', {a:obj.tx.length, b:(obj.fund||[]).length})); }
@@ -1576,7 +1650,7 @@ $('#themeBtn')?.addEventListener('click', ()=>{ const order=['auto','light','dar
 document.addEventListener('themechange', ()=>{ paintThemeBtn(); scheduleRender(); });
 paintThemeBtn();
 $('#langSel')?.addEventListener('change', e=>setLang(e.target.value));
-document.addEventListener('langchange', ()=>{ paintLangSel(); paintPrivacy(); paintThemeBtn(); if(!$('#sheet').hidden) closeSheet(); render(); toast(L('Đã chuyển sang tiếng Việt')); });
+document.addEventListener('langchange', ()=>{ refreshLocation(); paintLangSel(); paintPrivacy(); paintThemeBtn(); if(!$('#sheet').hidden) closeSheet(); render(); toast(L('Đã chuyển sang tiếng Việt')); });
 paintLangSel();
 $('#logoutTop')?.addEventListener('click', ()=>FIN.logout());
 $('#privacyBtn')?.addEventListener('click', ()=>{ setPrivacy(!isPrivate()); toast(isPrivate()? L('Đã ẩn số tiền') : L('Đã hiện số tiền')); });
@@ -1914,6 +1988,7 @@ async function boot(){
       $('#logoutBtn').addEventListener('click', ()=>FIN.logout());
     }catch(e){}
   }
+  refreshLocation();
   if(window.FIN){
     FIN.onMembers(list=>{ S.members=list; scheduleRender(); });
     FIN.onConnection(on=>{ S.conn = on? 'on' : 'pending'; scheduleRender(); });

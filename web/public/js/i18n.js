@@ -75,6 +75,15 @@
   /** Short month + year: T10/2026 · Oct 2026 · 2026年10月 */
   function mYShort(m, y) { return lang === 'en' ? EN_M[m - 1].slice(0, 3) + ' ' + y : lang === 'ja' ? y + '年' + m + '月' : 'T' + m + '/' + y; }
 
+  /* ---------- weekdays ---------- */
+  var WD = {
+    vi: { long: ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'], short: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'] },
+    en: { long: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], short: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
+    ja: { long: ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'], short: ['日', '月', '火', '水', '木', '金', '土'] },
+  };
+  /** Weekday of a date: Thứ Bảy / T7 · Saturday / Sat · 土曜日 / 土. */
+  function weekday(d, form) { return WD[lang][form === 'short' ? 'short' : 'long'][d.getDay()]; }
+
   /* ---------- amount in words (deposit form) ---------- */
   function wordsVi(n) {
     var D = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
@@ -152,6 +161,6 @@
     },
     t: t, tMsg: tMsg, apply: apply,
     locale: locale, int: int, num: num, compact: compact, decIn: decIn, parseDecimal: parseDecimal,
-    monthLabel: monthLabel, monthIn: monthIn, mShort: mShort, mYShort: mYShort, words: words,
+    monthLabel: monthLabel, monthIn: monthIn, weekday: weekday, mShort: mShort, mYShort: mYShort, words: words,
   };
 })();

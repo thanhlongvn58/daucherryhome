@@ -632,3 +632,9 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
   .top .privacy-btn{position:absolute;top:0;right:52px}
   .top-title{padding-right:104px}
 }
+
+/* ---------- clock weekday: full name on wide screens, short on phones/tablets ---------- */
+.wd-s{display:none}
+@media (max-width:900px){.wd-l{display:none}.wd-s{display:inline}}
+/* ---------- greeting location ---------- */
+.greeting .g-loc{white-space:nowrap;font-style:normal;font-family:var(--font-ui);font-size:.72em;font-weight:500;letter-spacing:.01em;color:var(--muted)}

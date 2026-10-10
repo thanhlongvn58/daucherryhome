@@ -719,6 +719,22 @@ window.STC_I18N_DICT = {
 "Hiện mật khẩu": ["Show password", "パスワードを表示"],
 "Ẩn mật khẩu": ["Hide password", "パスワードを隠す"],
 
+/* ---------- greeting location ---------- */
+"Tài chính Gia đình": ["Family Finance", "家族の家計"],
+"Vị trí trong lời chào": ["Location in the greeting", "あいさつに表示する地域"],
+"Tự động theo thiết bị": ["Automatic (device)", "端末の位置情報"],
+"Nhập tay": ["Enter manually", "手動で入力"],
+"Tắt": ["Off", "オフ"],
+"Thành phố / tỉnh": ["City / province", "市区町村・都道府県"],
+"vd: TP. Hồ Chí Minh, Hà Nội, London": ["e.g. Ho Chi Minh City, Hanoi, London", "例：ホーチミン市、ハノイ、ロンドン"],
+"Trình duyệt chưa cho phép truy cập vị trí. Hãy cho phép trong cài đặt của trình duyệt/điện thoại, hoặc chọn “Nhập tay”.": ["Location access isn't allowed yet. Allow it in your browser or phone settings, or choose “Enter manually”.", "位置情報へのアクセスが許可されていません。ブラウザまたは端末の設定で許可するか、「手動で入力」を選んでください。"],
+"Đang hiển thị: {city}": ["Showing: {city}", "表示中：{city}"],
+"Đang xác định vị trí…": ["Finding your location…", "位置情報を取得中…"],
+"Cập nhật vị trí": ["Update location", "位置情報を更新"],
+"Chỉ dùng tên thành phố cho lời chào; vị trí được làm tròn khoảng 1 km và không lưu trên máy chủ.": ["Only the city name is used for the greeting; the position is rounded to about 1 km and never stored on the server.", "あいさつには市区町村名のみを使用します。位置は約1kmに丸められ、サーバーには保存されません。"],
+"Đang cập nhật vị trí…": ["Updating location…", "位置情報を更新中…"],
+"Đã lưu vị trí": ["Location saved", "地域を保存しました"],
+
 /* ---------- greeting ---------- */
 "Chào buổi sáng, {name}": ["Good morning, {name}", "おはようございます、{name}さん"],
 "Chào buổi chiều, {name}": ["Good afternoon, {name}", "こんにちは、{name}さん"],

@@ -18,7 +18,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob:",
-  "connect-src 'self'",
+  "connect-src 'self' https://api.bigdatacloud.net",
   "manifest-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -40,7 +40,7 @@ export function createApp(cfg) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=()');
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     if (isHttps(req)) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
   }
