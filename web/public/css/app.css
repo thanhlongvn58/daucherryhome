@@ -10,7 +10,7 @@
   --on-strong:#FFFFFF;
   --hero-1:#0F3A28; --hero-2:#1B5C41; --hero-ink:#F4F8F5; --hero-muted:#A9C4B6; --hero-line:rgba(255,255,255,.14); --hero-gold:#E6C27E;
   --c-mgmt:#1B5C41; --c-util:#2A9D8F; --c-helper:#7B61A8; --c-transport:#D9A13B; --c-food:#E07A5F; --c-other:#4F7FAA; --c-kids:#D9689A;
-  --f-savings:#1B5C41; --f-kids:#D9689A; --f-risk:#D9A13B; --f-emergency:#2A9D8F;
+  --f-savings:#4F9DDE; --f-kids:#D9689A; --f-risk:#D9A13B; --f-emergency:#2A9D8F;
   --shadow:0 1px 2px rgba(16,36,27,.05),0 8px 24px -14px rgba(16,36,27,.18);
   --font-ui:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --font-num:"Inter","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
@@ -26,7 +26,7 @@
   --on-strong:#08140E;
   --hero-1:#0C2E20; --hero-2:#1B5C41;
   --c-mgmt:#5CC28C; --c-util:#4CC9B9; --c-helper:#AE95DE; --c-transport:#E8BA5C; --c-food:#F2937A; --c-other:#7FAFE0; --c-kids:#F08DB8;
-  --f-savings:#5CC28C; --f-kids:#F08DB8; --f-risk:#E8BA5C; --f-emergency:#4CC9B9;
+  --f-savings:#7DB8F0; --f-kids:#F08DB8; --f-risk:#E8BA5C; --f-emergency:#4CC9B9;
   --shadow:0 0 0 1px rgba(255,255,255,.02);
   color-scheme:dark;
 }}
@@ -40,7 +40,7 @@
   --on-strong:#08140E;
   --hero-1:#0C2E20; --hero-2:#1B5C41;
   --c-mgmt:#5CC28C; --c-util:#4CC9B9; --c-helper:#AE95DE; --c-transport:#E8BA5C; --c-food:#F2937A; --c-other:#7FAFE0; --c-kids:#F08DB8;
-  --f-savings:#5CC28C; --f-kids:#F08DB8; --f-risk:#E8BA5C; --f-emergency:#4CC9B9;
+  --f-savings:#7DB8F0; --f-kids:#F08DB8; --f-risk:#E8BA5C; --f-emergency:#4CC9B9;
   --shadow:0 0 0 1px rgba(255,255,255,.02);
   color-scheme:dark;
 }
@@ -638,3 +638,30 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 @media (max-width:900px){.wd-l{display:none}.wd-s{display:inline}}
 /* ---------- greeting location ---------- */
 .greeting .g-loc{white-space:nowrap;font-style:normal;font-family:var(--font-ui);font-size:.72em;font-weight:500;letter-spacing:.01em;color:var(--muted)}
+
+/* ---------- notification bell ---------- */
+.bell-btn{position:relative}
+.bell-btn.has-unread .ico{animation:bell-ring 2.4s ease-in-out 1}
+@keyframes bell-ring{0%,100%{transform:rotate(0)}8%{transform:rotate(14deg)}16%{transform:rotate(-12deg)}24%{transform:rotate(8deg)}32%{transform:rotate(0)}}
+.bell-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--neg);color:#fff;font-family:var(--font-num);font-size:10.5px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--bg)}
+.bell-panel{position:fixed;z-index:95;width:min(380px,calc(100vw - 24px));max-height:min(70vh,520px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 22px 48px -18px rgba(0,0,0,.45)}
+.bell-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 10px;border-bottom:1px solid var(--line-2);position:sticky;top:0;background:var(--surface)}
+.bell-h b{font-size:15px}
+.bell-list{display:flex;flex-direction:column}
+.bell-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start;text-align:left;padding:12px 16px;border:0;border-bottom:1px solid var(--line-2);background:transparent;color:var(--ink);cursor:pointer}
+.bell-item:hover{background:var(--surface-2)}
+.bell-item .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center}
+.bell-item .ic svg{width:16px;height:16px}
+.bell-item.neg .ic{background:var(--neg-soft);color:var(--neg)} .bell-item.warn .ic{background:var(--gold-soft);color:var(--gold)} .bell-item.info .ic{background:var(--accent-soft);color:var(--accent)}
+.bell-item .tx b{display:block;font-size:13.5px;font-weight:600}
+.bell-item .tx span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+.bell-item:not(.unread) .tx b{font-weight:500;color:var(--ink-2)}
+.bell-item .dot{width:8px;height:8px;border-radius:50%;background:var(--neg);margin-top:6px}
+.bell-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 18px;text-align:center;color:var(--muted);font-size:13px}
+.bell-empty svg{width:28px;height:28px;color:var(--pos)} .bell-empty b{color:var(--ink);font-size:14px}
+@media (max-width:900px){
+  .top .bell-btn{position:absolute;top:0;right:104px}
+  .top-title{padding-right:156px}
+}
+/* ---------- surplus breakdown ---------- */
+.sur-total{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px}

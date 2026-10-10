@@ -417,8 +417,8 @@ function alerts(){
   for(const cat of CATS){ const b=+c.budgets[cat.id]||0; if(b && a.cats[cat.id]>b) out.push({lv:'warn', t:L('{cat} vượt ngân sách {month}', {cat:cat.name, month:monthIn(y,m)}), d:L('Đã chi {spent} / {budget} (+{over}).', {spent:compact(a.cats[cat.id]), budget:compact(b), over:compact(a.cats[cat.id]-b)}), go:'spending'}); }
   const pm = m===1? {y:y-1,m:12} : {y, m:m-1};
   const pa = monthAgg(pm.y)[pm.m-1]; const sur = pa.income - pa.exp;
-  const pw = +((S.months[ymKey(pm.y,pm.m)]||{}).withdrawn?.amount)||0;
-  if(pa.n && sur-pw>0 && !S.fund.some(e=>e.ref==='surplus-'+ymKey(pm.y,pm.m))) out.push({lv:'info', t:L('Thặng dư {month}: {v} chưa chuyển quỹ', {month:mYShort(pm.m,pm.y), v:compact(sur-pw)}), d:L('Chuyển vào Quỹ khẩn cấp để chốt sổ tháng.'), go:'spending', month:pm});
+  const psp = surplusState(pm.y, pm.m);
+  if(pa.n && sur>0 && psp.left>0) out.push({lv:'info', t:L('Thặng dư {month}: {v} chưa chuyển quỹ', {month:mYShort(pm.m,pm.y), v:compact(psp.left)}), d:L('Chuyển vào Quỹ khẩn cấp để chốt sổ tháng.'), go:'spending', month:pm});
   const act = activeDeposits();
   if(act.length){ const diff = fundBalance('savings') - sum(act,d=>d.amount);
     if(Math.abs(diff) >= 100000) out.push({lv:'info', t:L('Sổ tiết kiệm lệch số dư quỹ {v}', {v:compact(Math.abs(diff))}), d:L('Tổng gốc đang gửi {p} so với số dư quỹ {f}.', {p:compact(sum(act,d=>d.amount)), f:compact(fundBalance('savings'))}), go:'deposits'}); }
@@ -484,7 +484,7 @@ function insights(){
   // 3. Expense structure
   if(yt.exp){
     const share = topCats[0].v/yt.exp;
-    const tone = share>.35? 'mid' : 'info';
+    const tone = share>.3? 'mid' : 'good';
     const plan = tone==='mid'? [
       L('Mục tiêu: không khoản nào vượt 30% tổng chi. {cat} cần giảm {cut}/tháng (từ {from} xuống {to}/tháng).', {cat:topCats[0].c.name, cut:b(vnd((topCats[0].v-.3*yt.exp)/n)+' ₫'), from:compact(topCats[0].v/n), to:compact(.3*yt.exp/n)}),
       L('Theo dõi khoản này hằng tuần bằng nút “Ghi chép” để thấy sớm khi vượt mức.'),
@@ -797,7 +797,7 @@ function viewOverview(){
     </div>
   </div>
   <div class="grid g-main section-gap">
-    <div class="card"><div class="card-h"><h2>${L('Nhận định tài chính gia đình')}</h2><span class="sub">${L('Tự động · cập nhật theo số liệu')}</span></div>
+    <div class="card"><div class="card-h"><h2>${L('Nhận định Tài chính Gia đình')}</h2><span class="sub">${L('Tự động · cập nhật theo số liệu')}</span></div>
       ${yt.months? '' : `<div class="verdict"><div class="badge" style="background:var(--muted)">—</div><div><b>${L('Chưa có thu chi năm {y}', {y})}</b><span>${L('Nhận định về tỷ lệ tiết kiệm và xu hướng chi tiêu sẽ có khi nhập số liệu tháng đầu tiên. Các mục dưới đây là tình hình hiện tại.')}</span></div></div>`}
       <div class="verdict ${ins.verdict.tone}" ${yt.months?'':'hidden'}><div class="badge">${ins.score}/${ins.maxScore}</div><div><b>${ins.verdict.t}</b><span>${ins.flagged? L('{n} mục cần lưu ý · bấm vào tiêu đề màu đỏ để xem cách cải thiện.', {n:ins.flagged}) : L('Không có mục cần cải thiện.')} ${L('Chấm theo tỷ lệ tiết kiệm, quỹ khẩn cấp, xu hướng chi tiêu và tài sản ròng.')}</span></div></div>
       <div>${ins.items.map(insightRow).join('')}</div>
@@ -837,8 +837,7 @@ function viewSpending(){
   const dv = monthDraftValues(y,m);
   const liveInc = isNaN(dv.income.v)?0:dv.income.v, liveExp = sum(CATS,c=>isNaN(dv[c.id].v)?0:dv[c.id].v), liveSur = liveInc-liveExp;
   const yt = yearTotals(y);
-  const moved = S.fund.find(e=>e.ref==='surplus-'+ymKey(y,m));
-  const withdrawn = (S.months[ymKey(y,m)]||{}).withdrawn;
+  const sp = surplusState(y,m);
   const ro = S.canWrite? '' : 'readonly';
   const noteMonths = agg.map((a,i)=>({a,i,note:(S.months[ymKey(y,i+1)]||{}).note||''})).filter(x=>x.a.n||x.note);
   const surSaved = cur.income-cur.exp;
@@ -850,7 +849,7 @@ function viewSpending(){
   <div class="grid g-4">
     ${kpi(`<i class="swatch" style="background:var(--accent)"></i>${L('Thu nhập')}`, `${vnd(cur.income)}<small>₫</small>`, yoyFoot(y,m,'income'))}
     ${kpi(`<i class="swatch" style="background:var(--exp)"></i>${L('Tổng chi')}`, `${vnd(cur.exp)}<small>₫</small>`, yoyFoot(y,m,'exp'))}
-    ${kpi(L('Thặng dư / lỗ'), `<span class="${surSaved<0?'neg':surSaved>0?'pos':''}">${signed(surSaved)}</span><small>₫</small>`, surplusFoot(surSaved, moved, withdrawn))}
+    ${kpi(L('Thặng dư / lỗ'), `<span class="${sp.shown<0?'neg':sp.shown>0?'pos':''}">${signed(sp.shown)}</span><small>₫</small>`, surplusFoot(sp))}
     ${kpi(L('Tỷ lệ tiết kiệm'), `<span class="${surSaved<0?'neg':''}">${pctPlain(cur.income? surSaved/cur.income : NaN)}</span>`, `${L('Năm {y}:', {y})} <b>${pctPlain(yt.income?(yt.income-yt.exp)/yt.income:NaN)}</b>`, 'accent')}
   </div>
 
@@ -902,12 +901,26 @@ function viewSpending(){
   ${historyCard(y)}`;
 }
 /** What happened to a month's surplus: moved to the emergency fund and/or withdrawn as cash. */
-function surplusFoot(sur, moved, withdrawn){
+/** A month's surplus and what has been done with it. "shown" is what is still unallocated once part of it has been
+    moved to the emergency fund (a journal entry) or withdrawn (money that left the book). */
+function surplusState(y,m){
+  const key = ymKey(y,m), a = monthAgg(y)[m-1], sur = a.income - a.exp;
+  const moved = S.fund.find(e=>e.ref==='surplus-'+key), wd = (S.months[key]||{}).withdrawn;
+  const mv = moved? +moved.amount||0 : 0, w = wd? +wd.amount||0 : 0, left = sur - mv - w;
+  return {key, sur, moved, wd, mv, w, left, n:a.n, shown: (mv||w)? left : sur};
+}
+function surplusFoot(sp){
   const out = [];
-  if(moved) out.push(`<span class="chip pos">${L('Đã chuyển {v} vào quỹ khẩn cấp', {v:compact(moved.amount)})}</span>`);
-  if(withdrawn) out.push(`<span class="chip gold">${L('Đã rút {v}', {v:compact(withdrawn.amount)})}</span>${S.canWrite && !moved? ` <button class="btn xs ghost" type="button" data-undo-withdraw>${L('Hoàn tác')}</button>`:''}`);
-  const left = sur - (withdrawn? +withdrawn.amount||0 : 0);
-  if(!moved && left>0 && S.canWrite) out.push(`<span class="surplus-acts"><button class="btn xs" type="button" data-move-surplus="${left}">${L('Chuyển vào Quỹ khẩn cấp')}</button>${withdrawn? '' : `<button class="btn xs" type="button" data-withdraw-surplus="${left}">${L('Rút tiền')}</button>`}</span>`);
+  if(sp.mv || sp.w) out.push(`<span class="sur-total">${L('Thặng dư tháng: {v} ₫', {v:`<b>${signed(sp.sur)}</b>`})}</span>`);
+  if(sp.mv) out.push(`<span class="chip pos">${L('Đã chuyển {v} vào quỹ khẩn cấp', {v:compact(sp.mv)})}</span>`);
+  if(sp.w) out.push(`<span class="chip gold">${L('Đã rút {v}', {v:compact(sp.w)})}</span>`);
+  const acts = [];
+  if(S.canWrite && sp.left>0){
+    acts.push(`<button class="btn xs" type="button" data-move-surplus="${sp.left}">${L('Chuyển vào Quỹ khẩn cấp')}</button>`);
+    acts.push(`<button class="btn xs" type="button" data-withdraw-surplus="${sp.left}">${L('Rút tiền')}</button>`);
+  }
+  if(S.canWrite && (sp.mv || sp.w)) acts.push(`<button class="btn xs ghost" type="button" data-restore-surplus>${L('Khôi phục')}</button>`);
+  if(acts.length) out.push(`<span class="surplus-acts">${acts.join('')}</span>`);
   return out.join(' ');
 }
 /** Difference vs average: positive → green "+amount (+x%)", negative → red "−amount (−x%)". */
@@ -1249,6 +1262,78 @@ function viewAppearance(){
     <div class="theme-pick" role="radiogroup" aria-label="${L('Chế độ giao diện')}">${['auto','light','dark'].map(k=>`<button type="button" role="radio" aria-checked="${m===k}" data-theme-set="${k}" class="theme-opt ${m===k?'on':''}"><span class="theme-prev ${k}"><i></i><i></i><i></i></span><span class="theme-name">${ico(THEME_ICON[k])}${THEME_LABEL[k]}</span><span class="hint">${k==='auto'?L('Tự đổi theo cài đặt sáng/tối của điện thoại, máy tính'):k==='light'?L('Nền sáng, chữ đậm — dễ đọc ban ngày'):L('Nền tối, dịu mắt — dùng buổi tối')}</span></button>`).join('')}</div>
     <p class="hint" style="margin:10px 0 0">${L('Có thể đổi nhanh bằng nút {icon} ở góc trên.', {icon:ico(THEME_ICON[m])})}</p></div>`;
 }
+/* ---------- notifications (bell) ----------
+   Computed from the data on every render, so an item disappears by itself once the fund or month is back in order.
+   Read state is kept per person on this device; opening the list (or "mark all as read") clears the badge. */
+const BELL_ICONS = {neg:ICONS.alert, warn:ICONS.warn, info:ICONS.info};
+function notifications(){
+  const out = [], y = curYear(), m = curMonth(), agg = monthAgg(y);
+  for(const mm of [m, m-1].filter(x=>x>=1)){
+    const a = agg[mm-1], sur = a.income - a.exp;
+    if(a.n && sur<0) out.push({id:'sur:'+ymKey(y,mm), lv:'neg', go:'spending', month:{y, m:mm},
+      t:L('Thặng dư {month} bị âm', {month:monthIn(y,mm)}),
+      d:L('Chi tiêu vượt thu nhập {v} ₫ · tỷ lệ tiết kiệm {p}.', {v:vnd(-sur), p:a.income? pctPlain(sur/a.income) : '—'})});
+  }
+  const yt = yearTotals(y), yr = yt.income? (yt.income-yt.exp)/yt.income : (yt.exp>0? -1 : 0);
+  if(yt.months && yr<0) out.push({id:'rate:'+y, lv:'neg', go:'spending', t:L('Tỷ lệ tiết kiệm năm {y} bị âm', {y}),
+    d:L('Thu {inc} · chi {exp} · thặng dư {sur}.', {inc:compact(yt.income), exp:compact(yt.exp), sur:signedC(yt.income-yt.exp)}) + (yt.income? ' ('+pctPlain(yr)+')' : '')});
+  for(const dp of activeDeposits()){
+    const k = depCalc(dp);
+    if(k.left===1) out.push({id:'dep1:'+dp.id+':'+k.mat, lv:'warn', go:'deposits', t:L('Sổ {bank} {amt} đáo hạn ngày mai', {bank:bankName(dp.bank), amt:compact(dp.amount)}),
+      d:L('Ngày đáo hạn {date} · gốc + lãi dự kiến {v} ₫.', {date:fmtDate(k.mat), v:vnd((+dp.amount||0)+k.atMat)})});
+    else if(k.left<=0) out.push({id:'dep0:'+dp.id+':'+k.mat, lv:'neg', go:'deposits', t:L('Sổ {bank} {amt} đã đến hạn', {bank:bankName(dp.bank), amt:compact(dp.amount)}),
+      d:L('Đến hạn ngày {date}. Hãy tất toán hoặc tái tục rồi cập nhật trong Sổ tiết kiệm.', {date:fmtDate(k.mat)})});
+  }
+  const em = emergencyStats();
+  if(em.bal<0) out.push({id:'emg-neg', lv:'neg', go:'emergency', t:L('Quỹ khẩn cấp đang âm'), d:L('Số dư hiện tại {v} ₫. Nạp thêm để đưa quỹ về mức dương.', {v:signed(em.bal)})});
+  else if(em.avg>0 && em.months<1) out.push({id:'emg-low', lv:'warn', go:'emergency', t:L('Quỹ khẩn cấp chưa đủ 1 tháng chi tiêu'),
+    d:L('Hiện đủ {n} tháng · cần thêm {v} ₫ để đủ 1 tháng.', {n:fmt1(em.months), v:vnd(em.avg-em.bal)})});
+  return out;
+}
+const notifKey = () => 'stc.notifRead.' + (S.meId||'me');
+function readIds(){ try{ return new Set(JSON.parse(localStorage.getItem(notifKey())||'[]')); }catch(e){ return new Set(); } }
+function saveReadIds(set, active){ const keep = [...set].filter(id=>active.has(id)); try{ localStorage.setItem(notifKey(), JSON.stringify(keep)); }catch(e){} }
+let bellOpen = false, bellSeen = [];
+function paintBell(){
+  const btn = $('#bellBtn'), badge = $('#bellBadge'); if(!btn) return;
+  if(!Object.values(S.loaded).every(Boolean)){ badge.hidden = true; return; }
+  const list = notifications(), read = readIds(), unread = list.filter(n=>!read.has(n.id)).length;
+  saveReadIds(read, new Set(list.map(n=>n.id)));           // items that resolved themselves drop out of the read list
+  badge.hidden = !unread; badge.textContent = unread>9? '9+' : String(unread);
+  const label = unread? L('Thông báo: {n} chưa đọc', {n:unread}) : L('Thông báo'); btn.setAttribute('aria-label', label); btn.title = label;
+  btn.classList.toggle('has-unread', !!unread);
+  if(bellOpen) paintBellPanel(list, read);
+}
+function paintBellPanel(list=notifications(), read=readIds()){
+  let p = $('#bellPanel');
+  if(!p){ p = document.createElement('div'); p.id='bellPanel'; p.className='bell-panel'; p.setAttribute('role','dialog'); p.setAttribute('aria-label', L('Thông báo')); document.body.append(p); }
+  const unread = list.filter(n=>!read.has(n.id)).length;
+  p.innerHTML = `<div class="bell-h"><b>${L('Thông báo')}</b>${unread? `<button type="button" class="btn xs ghost" data-bell-readall>${L('Đánh dấu đã đọc tất cả')}</button>`:''}</div>
+    ${list.length? `<div class="bell-list">${list.map(n=>`<button type="button" class="bell-item ${n.lv} ${read.has(n.id)?'':'unread'}" data-bell-go="${n.go}" data-bell-id="${esc(n.id)}" ${n.month?`data-bell-month="${n.month.y}-${n.month.m}"`:''}>
+      <span class="ic">${ico(BELL_ICONS[n.lv]||ICONS.info)}</span><span class="tx"><b>${esc(n.t)}</b><span>${esc(n.d)}</span></span>${read.has(n.id)?'':'<i class="dot" aria-label="'+L('Chưa đọc')+'"></i>'}</button>`).join('')}</div>`
+      : `<div class="bell-empty">${ico(ICONS.check)}<b>${L('Không có thông báo mới')}</b><span>${L('Thu chi, sổ tiết kiệm và quỹ khẩn cấp đều ổn.')}</span></div>`}`;
+  const r = $('#bellBtn').getBoundingClientRect();
+  if(innerWidth>640){ p.style.top = (r.bottom+8)+'px'; p.style.right = Math.max(12, innerWidth-r.right)+'px'; p.style.left = 'auto'; }
+  else { p.style.top = (r.bottom+8)+'px'; p.style.left = '12px'; p.style.right = '12px'; }
+  bellSeen = list.map(n=>n.id);
+}
+function openBell(){ bellOpen = true; $('#bellBtn').setAttribute('aria-expanded','true'); paintBellPanel(); }
+/** Closing the list counts as having seen everything in it. */
+function closeBell(){ if(!bellOpen) return; bellOpen = false; $('#bellBtn').setAttribute('aria-expanded','false'); $('#bellPanel')?.remove();
+  const read = readIds(); bellSeen.forEach(id=>read.add(id)); saveReadIds(read, new Set(notifications().map(n=>n.id))); paintBell(); }
+document.addEventListener('click', e=>{
+  if(e.target.closest('#bellBtn')){ bellOpen? closeBell() : openBell(); return; }
+  const p = $('#bellPanel'); if(!p) return;
+  if('bellReadall' in (e.target.closest('[data-bell-readall]')?.dataset||{})){ const read=readIds(); notifications().forEach(n=>read.add(n.id)); saveReadIds(read, new Set(notifications().map(n=>n.id))); paintBell(); return; }
+  const it = e.target.closest('[data-bell-go]');
+  if(it){ const read=readIds(); read.add(it.dataset.bellId); saveReadIds(read, new Set(notifications().map(n=>n.id)));
+    if(it.dataset.bellMonth){ const [yy,mm]=it.dataset.bellMonth.split('-').map(Number); S.year=yy; S.month=mm; }
+    closeBell(); if(location.hash==='#'+it.dataset.bellGo) render(); else location.hash = it.dataset.bellGo; return; }
+  if(!p.contains(e.target)) closeBell();
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && bellOpen) closeBell(); });
+window.addEventListener('resize', ()=>{ if(bellOpen) paintBellPanel(); });
+
 /* ---------- privacy: blur money on screen (per device, remembered) ---------- */
 const EYE = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
 const EYE_OFF = '<path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 5.4-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
@@ -1467,6 +1552,7 @@ function render(){
   $('#main').innerHTML = html;
   hydrateAvatars();
   maskInputs($('#main'));
+  paintBell();
 }
 document.addEventListener('focusout', ()=>{ setTimeout(()=>{ if(pendingRender) render(); }, 0); });
 async function hydrateAvatars(){
@@ -1567,12 +1653,17 @@ main.addEventListener('click', async e=>{
     if(!p) return; if(!(v>0)){ toast(L('Giá chưa hợp lệ. Ví dụ: 13732,75')); return; }
     const body = {...stripId(p), price:v, priceDate:todayISO()}; delete body._virtual; delete body.color;
     if(await write(()=>db.collection('products').doc(p.id).set(body))) toast(L('Đã cập nhật giá {p}: {v}', {p:productLabel(p), v:fmtPrice(v)})); return; }
-  if(d.moveSurplus){ const amt=+d.moveSurplus; const key=ymKey(S.year,S.month); t.disabled=true;
-    const ok = await write(()=>db.collection('fund').doc('surplus-'+key).set({date:lastDayISO(S.year,S.month), fund:'emergency', type:'in', amount:amt, note:L('Thặng dư sinh hoạt {month}', {month:mYShort(S.month,S.year)}), ref:'surplus-'+key, by:S.meId, at:Date.now()}));
+  if(d.moveSurplus){ const amt=+d.moveSurplus; const sp=surplusState(S.year,S.month); t.disabled=true;
+    // one journal entry per month in the emergency fund; moving again tops it up
+    const ok = await write(()=>db.collection('fund').doc('surplus-'+sp.key).set({date:lastDayISO(S.year,S.month), fund:'emergency', type:'in', amount:sp.mv+amt, note:L('Thặng dư sinh hoạt {month}', {month:mYShort(S.month,S.year)}), ref:'surplus-'+sp.key, by:S.meId, at:Date.now()}));
     if(ok) toast(L('Đã chuyển {v} ₫ vào Quỹ khẩn cấp', {v:vnd(amt)})); else t.disabled=false; return; }
+  if('restoreSurplus' in d){ if(!arm(t, L('Bấm lần nữa để khôi phục'))) return; const sp=surplusState(S.year,S.month); t.disabled=true;
+    // undo both: remove the emergency-fund entry (the fund balance follows) and the withdrawal record
+    let ok = true;
+    if(sp.moved) ok = await write(()=>db.collection('fund').doc(sp.moved.id).delete());
+    if(ok && sp.wd){ const body={...(S.months[sp.key]||{})}; delete body.withdrawn; ok = await write(()=>db.collection('months').doc(sp.key).set(body)); }
+    if(ok) toast(L('Đã khôi phục thặng dư {v} ₫', {v:vnd(sp.mv+sp.w)})); else t.disabled=false; return; }
   if(d.withdrawSurplus){ openWithdraw(+d.withdrawSurplus); return; }
-  if('undoWithdraw' in d){ const key=ymKey(S.year,S.month); const body={...(S.months[key]||{})}; delete body.withdrawn;
-    if(await write(()=>db.collection('months').doc(key).set(body))) toast(L('Đã hoàn tác rút tiền')); return; }
   if(t.id==='mReset'){ const key=ymKey(S.year,S.month); for(const k of Object.keys(S.drafts)) if(k.startsWith(`m:${key}:`)) delete S.drafts[k]; render(); return; }
   if(d.export){ exportData(d.export); return; }
   if(t.id==='logoutBtn2'){ FIN.logout(); return; }
@@ -1863,7 +1954,8 @@ function openWithdraw(max){
     if(!(a>0)){ toast(L('Nhập số tiền lớn hơn 0')); $('#w-amt').focus(); return; }
     if(a>max){ toast(L('Số tiền rút không vượt quá thặng dư {v} ₫', {v:vnd(max)})); $('#w-amt').focus(); return; }
     const btn=e.target.querySelector('button[type=submit]'); btn.disabled=true;
-    const body = {...(S.months[key]||{}), withdrawn:{amount:a, note:$('#w-note').value.trim(), date:todayISO(), by:S.meId, at:Date.now()}};
+    const prev = +(S.months[key]||{}).withdrawn?.amount || 0;
+    const body = {...(S.months[key]||{}), withdrawn:{amount:prev+a, note:$('#w-note').value.trim(), date:todayISO(), by:S.meId, at:Date.now()}};
     if(await write(()=>db.collection('months').doc(key).set(body))){ toast(L('Đã ghi nhận rút {v} ₫', {v:vnd(a)})); closeSheet(); } else btn.disabled=false;
   });
 }
