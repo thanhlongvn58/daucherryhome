@@ -919,7 +919,9 @@ function surplusFoot(sp){
     acts.push(`<button class="btn xs" type="button" data-move-surplus="${sp.left}">${L('Chuyển vào Quỹ khẩn cấp')}</button>`);
     acts.push(`<button class="btn xs" type="button" data-withdraw-surplus="${sp.left}">${L('Rút tiền')}</button>`);
   }
-  if(S.canWrite && (sp.mv || sp.w)) acts.push(`<button class="btn xs ghost" type="button" data-restore-surplus>${L('Khôi phục')}</button>`);
+  // always shown so people know it exists; usable once part of the surplus has been moved or withdrawn
+  if(S.canWrite && sp.n){ const can = !!(sp.mv || sp.w), tip = can? L('Trả lại khoản đã chuyển quỹ / đã rút về Thặng dư tháng') : L('Chưa có khoản nào đã chuyển quỹ hoặc rút để khôi phục');
+    acts.push(`<button class="btn xs" type="button" data-restore-surplus ${can?'':'disabled'} title="${tip}" aria-label="${L('Khôi phục')} – ${tip}">${ico('<path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/>')}${L('Khôi phục')}</button>`); }
   if(acts.length) out.push(`<span class="surplus-acts">${acts.join('')}</span>`);
   return out.join(' ');
 }

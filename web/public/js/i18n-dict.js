@@ -741,6 +741,8 @@ window.STC_I18N_DICT = {
 "Hiện đủ {n} tháng · cần thêm {v} ₫ để đủ 1 tháng.": ["Covers {n} months now · {v} ₫ more needed for 1 month.", "現在 {n}か月分 · 1か月分まであと {v} ₫。"],
 "Thặng dư tháng: {v} ₫": ["Month's surplus: {v} ₫", "今月の収支：{v} ₫"],
 "Khôi phục": ["Restore", "元に戻す"],
+"Trả lại khoản đã chuyển quỹ / đã rút về Thặng dư tháng": ["Return the amount moved to the fund / withdrawn to this month's surplus", "振替・引き出した金額を今月の収支に戻します"],
+"Chưa có khoản nào đã chuyển quỹ hoặc rút để khôi phục": ["Nothing has been moved or withdrawn yet", "元に戻せる振替・引き出しはまだありません"],
 "Bấm lần nữa để khôi phục": ["Tap again to restore", "もう一度タップで元に戻す"],
 "Đã khôi phục thặng dư {v} ₫": ["Restored a surplus of {v} ₫", "収支 {v} ₫ を元に戻しました"],
 
