@@ -159,12 +159,15 @@ let db=null, user=null;
 const $ = (s,el=document)=>el.querySelector(s);
 const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const vnd = n => I.int(n);
-const compact = n => I.compact(n);
+/* Money on screen; in privacy mode it shows as **** (see setPrivacy). Input fields use vndRaw. */
+const MASK = '****';
+const vndRaw = n => I.int(n);
+const vnd = n => isPrivate()? MASK : I.int(n);
+const compact = n => isPrivate()? MASK : I.compact(n);
 const pct = (x,d=1) => (!isFinite(x)? '—' : (x>=0?'+':'−')+I.num(Math.abs(x*100),d,d)+'%');
 const pctPlain = (x,d=1) => (!isFinite(x)? '—' : I.num(x*100,d,d)+'%');
-const signed = n => (n>0?'+':n<0?'−':'')+vnd(Math.abs(n));
-const signedC = n => (n>0?'+':n<0?'−':'')+compact(Math.abs(n));
+const signed = n => isPrivate()? MASK : (n>0?'+':n<0?'−':'')+vnd(Math.abs(n));
+const signedC = n => isPrivate()? MASK : (n>0?'+':n<0?'−':'')+compact(Math.abs(n));
 const fmt1 = n => I.num(n,1);
 const pad = n => String(n).padStart(2,'0');
 const toISO = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -351,8 +354,8 @@ function vcbfStats(){ const t = portfolio(); return {value:t.value, cost:t.cost,
 const productLabel = p => p.code || p.name || L('Sản phẩm');
 /** Units are stored as typed (CCQ, cổ phiếu…); the common ones are shown in the reader's language. */
 const unitLabel = u => u? L(u) : '';
-const fmtUnits = u => I.num(u,2);
-const fmtPrice = p => I.num(p,2);
+const fmtUnits = u => isPrivate()? MASK : I.num(u,2);
+const fmtPrice = p => isPrivate()? MASK : I.num(p,2);
 function depCalc(d){
   const mat = depMaturity(d); const today = todayISO();
   const totalDays = Math.max(1, daysBetween(d.start, mat));
@@ -812,7 +815,7 @@ function monthField(y,m,cat){
   const items = S.tx.filter(t=>t.date && t.date.startsWith(key) && (cat==='income'? t.kind==='income' : t.kind!=='income' && normCat(t.cat)===cat));
   const baseId = 'x'+key+'-'+cat; const base = items.find(t=>t.id===baseId); const others = items.filter(t=>t.id!==baseId);
   const othersSum = sum(others,t=>t.amount); const total = (base? +base.amount||0 : 0) + othersSum;
-  const display = (!others.length && base?.expr) ? base.expr : (total? vnd(total) : '');
+  const display = (!others.length && base?.expr) ? base.expr : (total? vndRaw(total) : '');
   return {key, baseId, base, others, othersSum, total, display};
 }
 const MONTH_FIELDS = ['income', ...CATS.map(c=>c.id)];
@@ -1187,26 +1190,26 @@ function viewSettings(){
   const budTotal = sum(CATS,cc=>c.budgets[cc.id]);
   return `<div class="grid g-2">
     <div class="card"><div class="card-h"><h2>${L('Ngân sách chi tiêu tháng')}</h2><span class="sub num">${L('Tổng {v} ₫', {v:vnd(budTotal)})}</span></div>
-      <div class="stack" style="gap:10px">${CATS.map(cc=>`<div class="field"><label for="bud-${cc.id}"><i class="swatch" style="background:var(--c-${cc.id});margin-right:6px"></i>${cc.name}</label><input class="input num" id="bud-${cc.id}" data-budget="${cc.id}" value="${c.budgets[cc.id]?vnd(c.budgets[cc.id]):''}" placeholder="${L('vd: 12tr')}" ${ro}></div>`).join('')}</div>
+      <div class="stack" style="gap:10px">${CATS.map(cc=>`<div class="field"><label for="bud-${cc.id}"><i class="swatch" style="background:var(--c-${cc.id});margin-right:6px"></i>${cc.name}</label><input class="input num" id="bud-${cc.id}" data-budget="${cc.id}" value="${c.budgets[cc.id]?vndRaw(c.budgets[cc.id]):''}" placeholder="${L('vd: 12tr')}" ${ro}></div>`).join('')}</div>
       <p class="hint">${L('Dùng để cảnh báo khi một khoản chi vượt ngân sách. Tự lưu khi rời ô.')}</p>
     </div>
     <div class="stack">
       <div class="card"><div class="card-h"><h2>${L('Đầu tư rủi ro cao')}</h2></div>
-        <div class="field"><label for="riskVal">${L('Giá trị hiện tại (₫)')}</label><input class="input num" id="riskVal" data-cfg-amount="highRisk" value="${c.highRisk?vnd(c.highRisk):'0'}" ${ro}></div>
+        <div class="field"><label for="riskVal">${L('Giá trị hiện tại (₫)')}</label><input class="input num" id="riskVal" data-cfg-amount="highRisk" value="${c.highRisk?vndRaw(c.highRisk):'0'}" ${ro}></div>
         <div class="field" style="margin-top:10px"><label for="riskNote">${L('Ghi chú danh mục')}</label><input class="input" id="riskNote" data-cfg-text="highRiskNote" value="${esc(c.highRiskNote)}" placeholder="${L('vd: cổ phiếu, vàng…')}" ${ro}></div>
       </div>
       <div class="card"><div class="card-h"><h2>${L('Quỹ khẩn cấp')}</h2></div>
         <div class="field"><label for="emgTarget">${L('Mục tiêu (số tháng chi tiêu)')}</label><input class="input num" id="emgTarget" data-cfg-int="emergencyTarget" value="${c.emergencyTarget}" inputmode="numeric" ${ro}><span class="hint">${L('Mốc an toàn tối thiểu cố định {n} tháng.', {n:EMERGENCY_MIN})}</span></div>
       </div>
       <div class="card"><div class="card-h"><h2>${L('Số dư đầu kỳ')}</h2><span class="sub">${L('tính đến {date}', {date:fmtDate(c.openings.asOf)})}</span></div>
-        <div class="row2"><div class="field"><label for="opE">${L('Quỹ khẩn cấp')}</label><input class="input num" id="opE" data-opening="emergency" value="${vnd(c.openings.emergency)}" ${ro}></div>
-        <div class="field"><label for="opS">${L('Quỹ tiết kiệm')}</label><input class="input num" id="opS" data-opening="savings" value="${vnd(c.openings.savings)}" ${ro}></div></div>
+        <div class="row2"><div class="field"><label for="opE">${L('Quỹ khẩn cấp')}</label><input class="input num" id="opE" data-opening="emergency" value="${vndRaw(c.openings.emergency)}" ${ro}></div>
+        <div class="field"><label for="opS">${L('Quỹ tiết kiệm')}</label><input class="input num" id="opS" data-opening="savings" value="${vndRaw(c.openings.savings)}" ${ro}></div></div>
       </div>
     </div>
   </div>
   <div class="grid g-2 section-gap">
     <div class="card"><div class="card-h"><h2>${L('Tài sản ròng các năm trước')}</h2><span class="sub">${L('Dùng để so sánh tăng trưởng')}</span></div>
-      <div class="row2">${navYears().map(k=>`<div class="field"><label for="nav-${k}">${L('Cuối năm {y}', {y:k})}</label><input class="input num" id="nav-${k}" data-nav="${k}" value="${c.navHistory[k]?vnd(c.navHistory[k]):''}" placeholder="${L('chưa chốt')}" ${ro}></div>`).join('')}</div>
+      <div class="row2">${navYears().map(k=>`<div class="field"><label for="nav-${k}">${L('Cuối năm {y}', {y:k})}</label><input class="input num" id="nav-${k}" data-nav="${k}" value="${c.navHistory[k]?vndRaw(c.navHistory[k]):''}" placeholder="${L('chưa chốt')}" ${ro}></div>`).join('')}</div>
       ${S.canWrite && curYear()-1>ledgerStartYear()? `<div style="margin-top:12px"><button class="btn sm" type="button" data-close-year="${curYear()-1}">${L('Chốt lại tài sản ròng cuối năm {y} từ sổ quỹ', {y:curYear()-1})}</button></div>`:''}
       <p class="hint">${L('Mỗi đầu năm, hệ thống tự chốt tài sản ròng cuối năm trước để làm mốc so sánh.')}</p>
     </div>
@@ -1247,6 +1250,7 @@ const PRIV_KEY = 'stc.privacy';
 const isPrivate = () => document.documentElement.classList.contains('privacy');
 function setPrivacy(on){
   document.documentElement.classList.toggle('privacy', on);
+  aggCache.clear(); render();
   try{ if(on) localStorage.setItem(PRIV_KEY,'1'); else localStorage.removeItem(PRIV_KEY); }catch(e){}
   paintPrivacy();
 }
@@ -1458,7 +1462,7 @@ main.addEventListener('click', async e=>{
   if(d.goto){ S.month=+d.goto; render(); $('#monthForm')?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
   if(d.gotoRow){ S.month=+d.gotoRow; render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
   if(d.editFund){ const x=S.fund.find(q=>q.id===d.editFund); if(x && S.canWrite) openTx({kind:x.fund, doc:x}); return; }
-  if(d.fixDiff){ const v=+d.fixDiff; const k='ff:savings:'; S.drafts[k+'type']= v>0?'out':'in'; S.drafts[k+'amt']=vnd(Math.abs(v)); S.drafts[k+'note']=L('Điều chỉnh cho khớp số dư sổ tại ngân hàng'); S.drafts[k+'date']=fmtDate(todayISO()); render(); const f=document.querySelector('[data-fund-form="savings"]'); f?.scrollIntoView({behavior:'smooth',block:'center'}); f?.querySelector('#ff-savings-note')?.focus(); toast(L('Đã điền sẵn bút toán điều chỉnh. Kiểm tra lại rồi bấm Ghi nhận.')); return; }
+  if(d.fixDiff){ const v=+d.fixDiff; const k='ff:savings:'; S.drafts[k+'type']= v>0?'out':'in'; S.drafts[k+'amt']=vndRaw(Math.abs(v)); S.drafts[k+'note']=L('Điều chỉnh cho khớp số dư sổ tại ngân hàng'); S.drafts[k+'date']=fmtDate(todayISO()); render(); const f=document.querySelector('[data-fund-form="savings"]'); f?.scrollIntoView({behavior:'smooth',block:'center'}); f?.querySelector('#ff-savings-note')?.focus(); toast(L('Đã điền sẵn bút toán điều chỉnh. Kiểm tra lại rồi bấm Ghi nhận.')); return; }
   if(d.editTx){ const x=S.tx.find(q=>q.id===d.editTx); if(x && S.canWrite) openTx({kind:x.kind==='income'?'income':'expense', doc:x}); return; }
   if('addDep' in d){ openDeposit(); return; }
   if(d.editDep){ if(S.canWrite) openDeposit(S.deposits.find(q=>q.id===d.editDep)); return; }
@@ -1622,7 +1626,7 @@ function openTx({kind='expense', doc=null}={}){
     <div class="panel-h"><h2>${isEdit?L('Sửa ghi chép'):L('Ghi chép nhanh')}</h2>${closeBtn()}</div>
     <div class="seg" id="kindSeg" role="group" aria-label="${L('Loại')}"></div>
     <div class="field"><label for="f-amt">${L('Số tiền')}</label>
-      <div class="amt-box"><input id="f-amt" autocomplete="off" inputmode="numeric" placeholder="0" value="${doc? vnd(doc.amount):''}"><span>₫</span></div>
+      <div class="amt-box"><input id="f-amt" autocomplete="off" inputmode="numeric" placeholder="0" value="${doc? vndRaw(doc.amount):''}"><span>₫</span></div>
       <div class="amt-prev" id="f-prev"></div>
       <div class="pills" id="quick">${quick.map(q=>`<button type="button" class="pill" data-q="${q}">+${compact(q)}</button>`).join('')}</div>
     </div>
@@ -1672,7 +1676,7 @@ function formatExact(input){
   if(out!==raw){ const before = raw.slice(0,pos).replace(/\D/g,'').length; input.value = out; keepCaret(input, out, before, /\d/); }
   return digits? +digits : NaN;
 }
-const exactPreview = n => n>0 ? `= ${vnd(n)} ₫ · <span class="words">${esc(readVND(n))}</span>` : L('Nhập đầy đủ số tiền đến hàng đơn vị, ví dụ {ex}', {ex:I.int(2500000000)});
+const exactPreview = n => n>0 ? `= ${vndRaw(n)} ₫ · <span class="words">${esc(readVND(n))}</span>` : L('Nhập đầy đủ số tiền đến hàng đơn vị, ví dụ {ex}', {ex:I.int(2500000000)});
 /** Exact amount field in a sheet: formats while typing and reads the amount out in words. */
 function bindExactAmount(input, prev, onChange){
   const upd = ()=>{ const n = formatExact(input); if(prev){ prev.innerHTML = exactPreview(n); prev.classList.remove('bad'); } if(onChange) onChange(n); };
@@ -1705,7 +1709,7 @@ function openDeposit(doc=null){
         <span class="hint" id="d-bank-full">${curKey? esc(BANKS[curKey].full) : ''}</span></div>
       <div class="field"><label for="d-label">${L('Tên sổ')}</label><input class="input" id="d-label" value="${esc(doc?.label||'')}" placeholder="${L('vd: Sổ học phí')}"></div>
     </div>
-    <div class="field"><label for="d-amt">${L('Số tiền gửi (₫)')}</label><div class="amt-box"><input id="d-amt" inputmode="numeric" autocomplete="off" value="${doc?vnd(doc.amount):''}" placeholder="${I.int(2500000000)}"><span>₫</span></div><div class="amt-prev" id="d-prev"></div></div>
+    <div class="field"><label for="d-amt">${L('Số tiền gửi (₫)')}</label><div class="amt-box"><input id="d-amt" inputmode="numeric" autocomplete="off" value="${doc?vndRaw(doc.amount):''}" placeholder="${I.int(2500000000)}"><span>₫</span></div><div class="amt-prev" id="d-prev"></div></div>
     <div class="row2">
       <div class="field"><label for="d-term">${L('Kỳ hạn')}</label><select class="input" id="d-term">${[1,2,3,6,9,12,13,15,18,24,36,48,60].map(t=>`<option value="${t}" ${(+doc?.term||12)===t?'selected':''}>${L('{n} tháng', {n:t})}</option>`).join('')}</select></div>
       <div class="field"><label for="d-rate">${L('Lãi suất (%/năm)')}</label><input class="input num" id="d-rate" inputmode="decimal" value="${doc? I.decIn(doc.rate):''}" placeholder="${L('vd: 4,6')}"></div>
@@ -1763,7 +1767,7 @@ function openWithdraw(max){
   openSheet(`<form id="wdForm" novalidate style="display:flex;flex-direction:column;gap:14px">
     <div class="panel-h"><h2>${L('Rút tiền thặng dư {month}', {month:monthIn(y,m)})}</h2>${closeBtn()}</div>
     <p class="hint" style="margin:0">${L('Ghi nhận khoản thặng dư đã rút ra dùng, không chuyển vào Quỹ khẩn cấp. Thặng dư tháng này: {v} ₫.', {v:`<b class="num">${vnd(max)}</b>`})}</p>
-    <div class="field"><label for="w-amt">${L('Số tiền rút')}</label><div class="amt-box"><input id="w-amt" inputmode="numeric" autocomplete="off" value="${vnd(max)}"><span>₫</span></div><div class="amt-prev" id="w-prev"></div></div>
+    <div class="field"><label for="w-amt">${L('Số tiền rút')}</label><div class="amt-box"><input id="w-amt" inputmode="numeric" autocomplete="off" value="${vndRaw(max)}"><span>₫</span></div><div class="amt-prev" id="w-prev"></div></div>
     <div class="field"><label for="w-note">${L('Ghi chú')}</label><input class="input" id="w-note" maxlength="200" placeholder="${L('vd: Rút tiền mặt chi tiêu gia đình')}"></div>
     <div class="panel-actions"><button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${L('Xác nhận rút tiền')}</button></div>
   </form>`);
@@ -1797,10 +1801,10 @@ function openLot(doc=null, productId=null){
       <div class="field"><label for="l-date">${L('Ngày giao dịch')}</label>${dateInput('l-date', doc?.date||defaultDateISO())}</div>
       <div class="field"><label for="l-price">${L('Giá / đơn vị')}</label><input class="input num" id="l-price" inputmode="decimal" value="${price0? I.decIn(price0):''}" placeholder="${L('vd: 13732,75')}"></div>
     </div>
-    <div class="field"><label for="l-amt">${L('Số tiền giao dịch')}</label><div class="amt-box"><input id="l-amt" autocomplete="off" inputmode="numeric" value="${doc? vnd((+doc.units)*(+doc.price)) : ''}" placeholder="${I.int(10000000)}"><span>₫</span></div><div class="amt-prev" id="l-prev"></div></div>
+    <div class="field"><label for="l-amt">${L('Số tiền giao dịch')}</label><div class="amt-box"><input id="l-amt" autocomplete="off" inputmode="numeric" value="${doc? vndRaw((+doc.units)*(+doc.price)) : ''}" placeholder="${I.int(10000000)}"><span>₫</span></div><div class="amt-prev" id="l-prev"></div></div>
     <div class="row2">
       <div class="field"><label for="l-units">${L('Số lượng')}</label><input class="input num" id="l-units" inputmode="decimal" value="${doc? I.decIn(doc.units):''}"><span class="hint">${L('Tự tính = số tiền ÷ giá. Sửa theo sao kê nếu khác.')}</span></div>
-      <div class="field"><label for="l-fee">${L('Phí giao dịch (nếu có)')}</label><input class="input num" id="l-fee" inputmode="numeric" autocomplete="off" value="${doc?.fee? vnd(doc.fee):''}" placeholder="0"></div>
+      <div class="field"><label for="l-fee">${L('Phí giao dịch (nếu có)')}</label><input class="input num" id="l-fee" inputmode="numeric" autocomplete="off" value="${doc?.fee? vndRaw(doc.fee):''}" placeholder="0"></div>
     </div>
     <div class="field"><label for="l-note">${L('Ghi chú')}</label><input class="input" id="l-note" value="${esc(doc?.note||'')}" placeholder="${L('vd: Mua định kỳ tháng 10')}"></div>
     <p class="hint" style="margin:0" id="l-sellhint" ${side0==='sell'?'':'hidden'}>${L('Khi bán, lãi/lỗ đã chốt được tính theo giá vốn bình quân của sản phẩm.')}</p>
