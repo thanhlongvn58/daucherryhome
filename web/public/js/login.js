@@ -6,6 +6,8 @@
   const params = new URLSearchParams(location.search);
   let setup = false;
   let lastError = '';
+  const REMEMBER = 'stc.rememberUser';
+  const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ } } };
 
   function safeNext() {
     const n = params.get('next') || '/';
@@ -20,14 +22,19 @@
     document.title = (setup ? L('Thiết lập lần đầu') : L('Đăng nhập')) + ' · ' + L('Sổ Tài Chính Nhà Mình');
     $('#pwToggle').textContent = $('#password').type === 'password' ? L('Hiện') : L('Ẩn');
     if (lastError) formError(lastError);
+    const info = $('#formInfo');
+    if (params.has('timeout') && !setup) { info.textContent = L('Bạn đã được đăng xuất tự động sau 20 phút không thao tác để bảo vệ thông tin.'); info.hidden = false; } else info.hidden = true;
   }
   function setMode(isSetup) {
     setup = isSetup;
     $('#nameField').hidden = !isSetup;
     $('#pwHint').hidden = !isSetup;
     $('#password').autocomplete = isSetup ? 'new-password' : 'current-password';
+    $('#rememberRow').hidden = isSetup;
+    const saved = !isSetup && store.get(REMEMBER);
+    if (saved && !$('#username').value) { $('#username').value = saved; $('#remember').checked = true; }
     paintMode();
-    (isSetup ? $('#name') : $('#username')).focus();
+    (isSetup ? $('#name') : saved ? $('#password') : $('#username')).focus();
   }
   function fieldError(id, msg) {
     const input = $('#' + id); const out = $('#' + id + 'Err');
@@ -63,13 +70,20 @@
     try {
       const r = await fetch(setup ? '/api/setup' : '/api/login', {
         method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(setup ? { name, username, password } : { username, password }),
+        body: JSON.stringify(setup ? { name, username, password } : { username, password, remember: $('#remember').checked }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
         if (r.status === 409 && setup) { setMode(false); formError(data.message); }
         else formError(data.message || 'Không đăng nhập được. Thử lại.');
         return;
+      }
+      if (!setup) {
+        // "Remember me": keep the username here; the password itself is left to the device's password manager.
+        if ($('#remember').checked) {
+          store.set(REMEMBER, username);
+          if (window.PasswordCredential && navigator.credentials) { try { await navigator.credentials.store(new PasswordCredential({ id: username, password, name: username })); } catch { /* declined */ } }
+        } else store.set(REMEMBER, null);
       }
       location.replace(safeNext());
     } catch {

@@ -58,14 +58,10 @@ export function createAuth(store, cfg) {
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
     deleteUserSessions: db.prepare('DELETE FROM sessions WHERE user_id = ?'),
     deleteOtherSessions: db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?'),
-    purge: db.prepare('DELETE FROM sessions WHERE expires_at < ?'),
-    insertToken: db.prepare('INSERT INTO api_tokens (id, user_id, token_hash, name, created_at) VALUES (?, ?, ?, ?, ?)'),
-    tokensOf: db.prepare('SELECT id, name, created_at, last_used FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC'),
-    tokenByHash: db.prepare('SELECT t.id AS tid, t.last_used, u.id AS uid, u.username, u.name, u.role, u.color FROM api_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?'),
-    touchToken: db.prepare('UPDATE api_tokens SET last_used = ? WHERE id = ?'),
-    deleteToken: db.prepare('DELETE FROM api_tokens WHERE id = ? AND user_id = ?'),
+    purge: db.prepare('DELETE FROM sessions WHERE expires_at < ? OR last_seen < ?'),
   };
   const ttl = cfg.sessionDays * 86400_000;
+  const idle = (cfg.sessionIdleMinutes || 0) * 60_000;
   const publicUser = u => u && ({ id: u.id ?? u.uid, username: u.username, name: u.name, role: u.role, color: u.color });
 
   // Login throttling: 8 failed attempts per IP in 15 minutes.
@@ -137,37 +133,21 @@ export function createAuth(store, cfg) {
       q.insertSession.run(sha256(token), userId, now, now + ttl, now);
       return token;
     },
-    /** Resolve a session token to a user; slides expiry forward at most once an hour. */
+    /** Resolve a session token to a user. A session unused for longer than the idle limit is ended;
+        otherwise last_seen (and the expiry) slide forward, written at most once a minute. */
     resolve(token) {
       if (!token) return null;
       const h = sha256(token);
       const s = q.session.get(h);
       const now = Date.now();
       if (!s) return null;
-      if (s.expires_at < now) { q.deleteSession.run(h); return null; }
-      if (now - s.last_seen > 3600_000) q.touch.run(now, now + ttl, h);
+      if (s.expires_at < now || (idle && now - s.last_seen > idle)) { q.deleteSession.run(h); return null; }
+      if (now - s.last_seen > 60_000) q.touch.run(now, now + ttl, h);
       return publicUser(s);
     },
     logout(token) { if (token) q.deleteSession.run(sha256(token)); },
 
-    /* Shortcut tokens: long-lived keys for the iPhone Shortcuts app. Only a hash is stored;
-       the raw token is shown once when created. Each person can revoke their own. */
-    createApiToken(userId, name) {
-      const n = String(name ?? '').trim().slice(0, 40) || 'iPhone';
-      const raw = 'stc_' + crypto.randomBytes(24).toString('base64url');
-      const id = 't_' + crypto.randomBytes(8).toString('base64url');
-      q.insertToken.run(id, userId, sha256(raw), n, Date.now());
-      return { token: raw, item: { id, name: n, createdAt: Date.now(), lastUsed: null } };
-    },
-    listApiTokens: userId => q.tokensOf.all(userId).map(t => ({ id: t.id, name: t.name, createdAt: t.created_at, lastUsed: t.last_used })),
-    revokeApiToken(userId, id) { if (!q.deleteToken.run(id, userId).changes) throw httpError(404, 'Không tìm thấy mã này.'); },
-    resolveApiToken(raw) {
-      if (!raw || !raw.startsWith('stc_')) return null;
-      const t = q.tokenByHash.get(sha256(raw)); if (!t) return null;
-      const now = Date.now(); if (!t.last_used || now - t.last_used > 60_000) q.touchToken.run(now, t.tid);
-      return publicUser(t);
-    },
-    purgeExpired() { q.purge.run(Date.now()); },
+    purgeExpired() { const now = Date.now(); q.purge.run(now, idle ? now - idle : 0); },
     sessionMaxAge: () => Math.floor(ttl / 1000),
   };
   return auth;

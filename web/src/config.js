@@ -25,6 +25,8 @@ export function loadConfig(env = process.env, overrides = {}) {
     trustProxy: bool(env.TRUST_PROXY, false),
     cookieSecure: bool(env.COOKIE_SECURE, publicUrl.startsWith('https://')),
     sessionDays: Number(env.SESSION_DAYS || 30),
+    // Sign out automatically after this many minutes without activity (0 turns it off).
+    sessionIdleMinutes: Number(env.SESSION_IDLE_MINUTES ?? 20),
     backupKeep: Number(env.BACKUP_KEEP || 14),
     backupHours: Number(env.BACKUP_HOURS || 24),
     logRequests: bool(env.LOG_REQUESTS, false),

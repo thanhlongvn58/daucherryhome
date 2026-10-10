@@ -150,7 +150,7 @@ const S = {
   tx:[], fund:[], deposits:[], vcbf:[], products:[], months:{}, members:[], product:null,
   cfg:null, cfgExists:false,
   loaded:{tx:false,fund:false,deposits:false,vcbf:false,products:false,months:false,cfg:false},
-  conn:'pending', canWrite:true, meId:null,
+  conn:'pending', canWrite:true, isOwner:false, meId:null,
   drafts:{}, openInsights:new Set(),
 };
 let db=null, user=null;
@@ -409,7 +409,8 @@ function alerts(){
   for(const cat of CATS){ const b=+c.budgets[cat.id]||0; if(b && a.cats[cat.id]>b) out.push({lv:'warn', t:L('{cat} vượt ngân sách {month}', {cat:cat.name, month:monthIn(y,m)}), d:L('Đã chi {spent} / {budget} (+{over}).', {spent:compact(a.cats[cat.id]), budget:compact(b), over:compact(a.cats[cat.id]-b)}), go:'spending'}); }
   const pm = m===1? {y:y-1,m:12} : {y, m:m-1};
   const pa = monthAgg(pm.y)[pm.m-1]; const sur = pa.income - pa.exp;
-  if(pa.n && sur>0 && !S.fund.some(e=>e.ref==='surplus-'+ymKey(pm.y,pm.m))) out.push({lv:'info', t:L('Thặng dư {month}: {v} chưa chuyển quỹ', {month:mYShort(pm.m,pm.y), v:compact(sur)}), d:L('Chuyển vào Quỹ khẩn cấp để chốt sổ tháng.'), go:'spending', month:pm});
+  const pw = +((S.months[ymKey(pm.y,pm.m)]||{}).withdrawn?.amount)||0;
+  if(pa.n && sur-pw>0 && !S.fund.some(e=>e.ref==='surplus-'+ymKey(pm.y,pm.m))) out.push({lv:'info', t:L('Thặng dư {month}: {v} chưa chuyển quỹ', {month:mYShort(pm.m,pm.y), v:compact(sur-pw)}), d:L('Chuyển vào Quỹ khẩn cấp để chốt sổ tháng.'), go:'spending', month:pm});
   const act = activeDeposits();
   if(act.length){ const diff = fundBalance('savings') - sum(act,d=>d.amount);
     if(Math.abs(diff) >= 100000) out.push({lv:'info', t:L('Sổ tiết kiệm lệch số dư quỹ {v}', {v:compact(Math.abs(diff))}), d:L('Tổng gốc đang gửi {p} so với số dư quỹ {f}.', {p:compact(sum(act,d=>d.amount)), f:compact(fundBalance('savings'))}), go:'deposits'}); }
@@ -690,10 +691,11 @@ function txRow(t){
 }
 const delBtn = (col,id) => S.canWrite? `<button class="btn xs danger" type="button" data-del="${col}/${esc(id)}">${L('Xóa')}</button>` : '';
 function kpi(label, value, foot='', cls=''){ return `<div class="card kpi ${cls}"><div class="label">${label}</div><div class="value">${value}</div>${foot?`<div class="foot">${foot}</div>`:''}</div>`; }
-function amountField(id, draftKey, label, placeholder){
-  return `<div class="field"><label for="${id}">${label}</label><div class="amt-box sm"><input id="${id}" data-draft="${draftKey}" data-amount-prev="${id}-p" autocomplete="off" value="${esc(draft(draftKey,''))}" placeholder="${placeholder}"><span>₫</span></div><div class="amt-prev" id="${id}-p">${amountPreview(draft(draftKey,''))}</div></div>`;
+/** Inline exact-amount field (digits only, separators added while typing; see formatExact). */
+function exactField(id, draftKey, label){
+  const v = draft(draftKey,''), n = +String(v).replace(/\D/g,'') || 0;
+  return `<div class="field"><label for="${id}">${label}</label><div class="amt-box sm"><input id="${id}" data-draft="${draftKey}" data-exact data-exact-prev="${id}-p" inputmode="numeric" autocomplete="off" value="${esc(v)}" placeholder="${I.int(20000000)}"><span>₫</span></div><div class="amt-prev" id="${id}-p">${exactPreview(n)}</div></div>`;
 }
-function amountPreview(v){ if(!String(v||'').trim()) return L('Gõ tắt: 250k · 1tr2 · 2,5tr · 150k+80k'); const n=parseAmount(v); return isNaN(n)? `<span class="neg">${L('Chưa đọc được số tiền')}</span>` : '= '+vnd(n)+' ₫'; }
 
 /** Inline entry form for a fund ledger (savings / emergency). */
 function fundForm(f){
@@ -703,7 +705,7 @@ function fundForm(f){
     <div class="typeseg" role="radiogroup" aria-label="${L('Loại giao dịch')}">${Object.entries(types).map(([t,l])=>`<label><input type="radio" name="ff-${f}-type" value="${t}" data-draft="${k}type" ${curType===t?'checked':''}><span class="${t==='out'?'out':''}">${l}</span></label>`).join('')}</div>
     <div class="row2">
       <div class="field"><label for="ff-${f}-date">${L('Ngày')}</label>${dateInput(`ff-${f}-date`, draft(k+'date', fmtDate(defaultDateISO())), `data-draft="${k}date"`)}</div>
-      ${amountField(`ff-${f}-amt`, k+'amt', L('Số tiền'), L('vd: 20tr'))}
+      ${exactField(`ff-${f}-amt`, k+'amt', L('Số tiền'))}
     </div>
     <div class="field"><label for="ff-${f}-note">${L('Nguồn / ghi chú')}</label><input class="input" id="ff-${f}-note" data-draft="${k}note" value="${esc(draft(k+'note',''))}" placeholder="${f==='savings'?L('vd: Tất toán sổ VCB 6 tháng'):L('vd: Lương tháng 10, khám bệnh cho Dâu')}" maxlength="200"></div>
     <div><button class="btn primary" type="submit">${ico(ICONS.plus)}${L('Ghi nhận')}</button></div>
@@ -828,6 +830,7 @@ function viewSpending(){
   const liveInc = isNaN(dv.income.v)?0:dv.income.v, liveExp = sum(CATS,c=>isNaN(dv[c.id].v)?0:dv[c.id].v), liveSur = liveInc-liveExp;
   const yt = yearTotals(y);
   const moved = S.fund.find(e=>e.ref==='surplus-'+ymKey(y,m));
+  const withdrawn = (S.months[ymKey(y,m)]||{}).withdrawn;
   const ro = S.canWrite? '' : 'readonly';
   const noteMonths = agg.map((a,i)=>({a,i,note:(S.months[ymKey(y,i+1)]||{}).note||''})).filter(x=>x.a.n||x.note);
   const surSaved = cur.income-cur.exp;
@@ -839,12 +842,12 @@ function viewSpending(){
   <div class="grid g-4">
     ${kpi(`<i class="swatch" style="background:var(--accent)"></i>${L('Thu nhập')}`, `${vnd(cur.income)}<small>₫</small>`, yoyFoot(y,m,'income'))}
     ${kpi(`<i class="swatch" style="background:var(--exp)"></i>${L('Tổng chi')}`, `${vnd(cur.exp)}<small>₫</small>`, yoyFoot(y,m,'exp'))}
-    ${kpi(L('Thặng dư / lỗ'), `<span class="${surSaved<0?'neg':surSaved>0?'pos':''}">${signed(surSaved)}</span><small>₫</small>`, moved? `<span class="chip pos">${L('Đã chuyển {v} vào quỹ khẩn cấp', {v:compact(moved.amount)})}</span>` : surSaved>0 && S.canWrite ? `<button class="btn xs" type="button" data-move-surplus="${surSaved}">${L('Chuyển vào Quỹ khẩn cấp')}</button>` : '')}
+    ${kpi(L('Thặng dư / lỗ'), `<span class="${surSaved<0?'neg':surSaved>0?'pos':''}">${signed(surSaved)}</span><small>₫</small>`, surplusFoot(surSaved, moved, withdrawn))}
     ${kpi(L('Tỷ lệ tiết kiệm'), `<span class="${surSaved<0?'neg':''}">${pctPlain(cur.income? surSaved/cur.income : NaN)}</span>`, `${L('Năm {y}:', {y})} <b>${pctPlain(yt.income?(yt.income-yt.exp)/yt.income:NaN)}</b>`, 'accent')}
   </div>
 
   <div class="grid g-split section-gap">
-    <div class="card"><div class="card-h"><h2>${L('Số liệu {month}', {month:monthIn(y,m)})}</h2><span class="sub">${L('Nhập tổng từng khoản như bảng Excel')}</span></div>
+    <div class="card"><div class="card-h"><h2>${L('Số liệu {month}', {month:monthIn(y,m)})}</h2></div>
       <form class="mform" id="monthForm" novalidate>
         <div class="mrow income ${dv.income.dirty?'dirty':''}" data-mrow="income"><label class="n" for="mf-income"><i class="swatch" style="background:var(--accent)"></i><span>${L('Thu nhập tháng')}</span></label>
           <input class="input" id="mf-income" data-draft="m:${ymKey(y,m)}:income" data-mfield="income" inputmode="text" autocomplete="off" value="${esc(dv.income.raw)}" placeholder="0" ${ro}>
@@ -871,24 +874,33 @@ function viewSpending(){
 
   <div class="card section-gap"><div class="card-h"><h2>${L('Diễn biến chi tiêu theo danh mục · {y}', {y})}</h2><span class="sub">${L('Chạm vào biểu đồ để xem số liệu từng tháng; bấm chú thích để ẩn/hiện')}</span></div>${yt.months? chartLines(agg,y,m) : emptyYear(y)}</div>
 
-  <div class="card section-gap"><div class="card-h"><h2>${L('Bảng tổng hợp {y}', {y})}</h2><span class="sub">${L('Bấm vào tháng để mở số liệu tháng đó')}</span></div>
-    <div class="tbl-wrap"><table>
+  <div class="card section-gap"><div class="card-h"><h2>${L('Bảng tổng hợp {y}', {y})}</h2><span class="sub">${L('Đơn vị: ₫ · bấm vào tháng để mở số liệu tháng đó')}</span></div>
+    <div class="tbl-wrap"><table class="sum-tbl">
       <thead><tr><th>${L('Khoản mục')}</th>${agg.map((a,i)=>`<th class="${i===m-1?'cur':''}">${mShort(i+1)}</th>`).join('')}<th>${L('Cả năm')}</th></tr></thead>
       <tbody>
-        <tr class="click"><td><b>${L('Thu nhập')}</b></td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.income?'':'zero'}" data-goto="${i+1}">${a.income?compact(a.income):'·'}</td>`).join('')}<td><b>${compact(yt.income)}</b></td></tr>
-        ${CATS.map(cc=>`<tr><td><i class="swatch" style="background:var(--c-${cc.id});margin-right:7px"></i>${cc.name}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.cats[cc.id]?'':'zero'}" data-goto="${i+1}">${a.cats[cc.id]?compact(a.cats[cc.id]):'·'}</td>`).join('')}<td>${compact(yt.cats[cc.id])}</td></tr>`).join('')}
-        <tr class="total"><td>${L('Tổng chi')}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''}" data-goto="${i+1}">${a.exp?compact(a.exp):'·'}</td>`).join('')}<td>${compact(yt.exp)}</td></tr>
-        <tr><td>${L('Thặng dư / lỗ')}</td>${agg.map((a,i)=>{const d=a.income-a.exp; return `<td class="${i===m-1?'cur':''} ${!a.n?'zero':d<0?'neg':'pos'}" data-goto="${i+1}">${a.n?compact(d):'·'}</td>`;}).join('')}<td class="${yt.income-yt.exp<0?'neg':'pos'}">${compact(yt.income-yt.exp)}</td></tr>
+        <tr class="click"><td><b>${L('Thu nhập')}</b></td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.income?'':'zero'}" data-goto="${i+1}">${a.income?vnd(a.income):'·'}</td>`).join('')}<td><b>${vnd(yt.income)}</b></td></tr>
+        ${CATS.map(cc=>`<tr><td><i class="swatch" style="background:var(--c-${cc.id});margin-right:7px"></i>${cc.name}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''} ${a.cats[cc.id]?'':'zero'}" data-goto="${i+1}">${a.cats[cc.id]?vnd(a.cats[cc.id]):'·'}</td>`).join('')}<td>${vnd(yt.cats[cc.id])}</td></tr>`).join('')}
+        <tr class="total"><td>${L('Tổng chi')}</td>${agg.map((a,i)=>`<td class="${i===m-1?'cur':''}" data-goto="${i+1}">${a.exp?vnd(a.exp):'·'}</td>`).join('')}<td>${vnd(yt.exp)}</td></tr>
+        <tr><td>${L('Thặng dư / lỗ')}</td>${agg.map((a,i)=>{const d=a.income-a.exp; return `<td class="${i===m-1?'cur':''} ${!a.n?'zero':d<0?'neg':'pos'}" data-goto="${i+1}">${a.n?vnd(d):'·'}</td>`;}).join('')}<td class="${yt.income-yt.exp<0?'neg':'pos'}">${vnd(yt.income-yt.exp)}</td></tr>
       </tbody></table></div>
   </div>
 
   <div class="card section-gap"><div class="card-h"><h2>${L('Ghi chú theo tháng · {y}', {y})}</h2><span class="sub">${L('Tổng hợp từ ô “Mô tả tháng”')}</span></div>
-    ${noteMonths.length? `<div class="tbl-wrap"><table>
-      <thead><tr><th>${L('Tháng')}</th><th>${L('Thu nhập')}</th><th>${L('Chi tiêu')}</th><th>${L('Thặng dư')}</th><th>${L('Tỷ lệ TK')}</th><th class="l">${L('Ghi chú / lưu ý')}</th></tr></thead>
-      <tbody>${noteMonths.map(({a,i,note})=>{ const d=a.income-a.exp; return `<tr class="click ${note?'':'muted-row'}" data-goto-row="${i+1}"><td><b>${mShort(i+1)}</b></td><td>${compact(a.income)}</td><td>${compact(a.exp)}</td><td class="${d<0?'neg':'pos'}">${signedC(d)}</td><td>${a.income?pctPlain(d/a.income):'—'}</td><td class="wrap">${note? esc(note) : `<span class="muted">${L('Chưa có ghi chú')}</span>`}</td></tr>`; }).join('')}</tbody>
+    ${noteMonths.length? `<div class="tbl-wrap"><table class="sum-tbl">
+      <thead><tr><th>${L('Tháng')}</th><th>${L('Thu nhập (₫)')}</th><th>${L('Chi tiêu (₫)')}</th><th>${L('Thặng dư (₫)')}</th><th>${L('Tỷ lệ TK')}</th><th class="l">${L('Ghi chú / lưu ý')}</th></tr></thead>
+      <tbody>${noteMonths.map(({a,i,note})=>{ const d=a.income-a.exp; return `<tr class="click ${note?'':'muted-row'}" data-goto-row="${i+1}"><td><b>${mShort(i+1)}</b></td><td>${vnd(a.income)}</td><td>${vnd(a.exp)}</td><td class="${d<0?'neg':'pos'}">${signed(d)}</td><td>${a.income?pctPlain(d/a.income):'—'}</td><td class="wrap">${note? esc(note) : `<span class="muted">${L('Chưa có ghi chú')}</span>`}</td></tr>`; }).join('')}</tbody>
     </table></div>` : `<div class="empty"><b>${L('Chưa có ghi chú')}</b>${L('Nhập “Mô tả tháng” trong phần số liệu tháng.')}</div>`}
   </div>
   ${historyCard(y)}`;
+}
+/** What happened to a month's surplus: moved to the emergency fund and/or withdrawn as cash. */
+function surplusFoot(sur, moved, withdrawn){
+  const out = [];
+  if(moved) out.push(`<span class="chip pos">${L('Đã chuyển {v} vào quỹ khẩn cấp', {v:compact(moved.amount)})}</span>`);
+  if(withdrawn) out.push(`<span class="chip gold">${L('Đã rút {v}', {v:compact(withdrawn.amount)})}</span>${S.canWrite && !moved? ` <button class="btn xs ghost" type="button" data-undo-withdraw>${L('Hoàn tác')}</button>`:''}`);
+  const left = sur - (withdrawn? +withdrawn.amount||0 : 0);
+  if(!moved && left>0 && S.canWrite) out.push(`<span class="surplus-acts"><button class="btn xs" type="button" data-move-surplus="${left}">${L('Chuyển vào Quỹ khẩn cấp')}</button>${withdrawn? '' : `<button class="btn xs" type="button" data-withdraw-surplus="${left}">${L('Rút tiền')}</button>`}</span>`);
+  return out.join(' ');
 }
 /** Difference vs average: positive → green "+amount (+x%)", negative → red "−amount (−x%)". */
 function cmpRow(name, color, curV, avgV, isTotal=false, baseLabel=L('TB')){
@@ -1156,13 +1168,13 @@ function productDetail(i, items){
     </div>
     ${buys.length? `<div class="section-gap"><div class="flabel" style="margin-bottom:6px">${L('Lãi/lỗ % từng lần mua theo thời gian')}</div>${chartLotPL(buys, i.price)}</div>`:''}
     <div class="section-gap">${i.lots.length? `<div class="tbl-wrap"><table>
-      <thead><tr><th>${L('Ngày')}</th><th class="l">${L('Loại')}</th><th>${L('Số lượng')}</th><th>${L('Giá')}</th><th>${L('Giá trị giao dịch')}</th><th>${L('Giá trị hiện tại')}</th><th>${L('Lãi / lỗ')}</th><th class="l" style="min-width:140px">${L('% lãi/lỗ')}</th></tr></thead>
+      <thead><tr><th>${L('Ngày')}</th><th class="l">${L('Loại')}</th><th>${L('Số lượng')}</th><th>${L('Giá')}</th><th>${L('Giá trị giao dịch')}</th><th>${L('Giá trị hiện tại')}</th><th>${L('Lãi / lỗ')}</th><th class="l" style="min-width:140px">${L('% lãi/lỗ')}</th>${S.isOwner?'<th></th>':''}</tr></thead>
       <tbody>${i.lots.map(l=>{ const u=+l.units||0, pr=+l.price||0, fee=+l.fee||0, sell=l.side==='sell';
         const amount = u*pr + (sell? -fee : fee), val = u*i.price, r = pr? (i.price-pr)/pr : 0, w = Math.min(50, Math.abs(r)*250);
         return `<tr class="click" data-edit-lot="${esc(l.id)}"><td class="num">${fmtDate(l.date)}</td><td class="txt"><span class="chip ${sell?'neg':'pos'}">${sell?L('Bán / rút'):L('Mua')}</span></td><td>${fmtUnits(u)}</td><td>${fmtPrice(pr)}</td><td>${vnd(amount)}</td>
           <td>${sell?'—':vnd(val)}</td><td class="${sell?'':val-amount>=0?'pos':'neg'}">${sell?'—':signed(val-amount)}</td>
-          <td class="l">${sell? `<span class="muted">${L('Đã chốt')}</span>` : `<div style="display:flex;align-items:center;gap:8px"><div style="position:relative;width:80px;height:8px;background:var(--sunken);border-radius:4px;flex:none"><span style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--line)"></span><span style="position:absolute;top:0;bottom:0;border-radius:4px;${r>=0?`left:50%;width:${w}%;background:var(--pos)`:`right:50%;width:${w}%;background:var(--neg)`}"></span></div><span class="${r>=0?'pos':'neg'}">${pct(r,1)}</span></div>`}</td></tr>`; }).join('')}
-        <tr class="total"><td>${L('Tổng')}</td><td></td><td>${fmtUnits(i.units)}</td><td>${fmtPrice(i.avg)}</td><td>${vnd(i.cost)}</td><td>${vnd(i.value)}</td><td class="${i.pl>=0?'pos':'neg'}">${signed(i.pl)}</td><td class="l ${i.pl>=0?'pos':'neg'}">${pct(i.plPct,2)}</td></tr>
+          <td class="l">${sell? `<span class="muted">${L('Đã chốt')}</span>` : `<div style="display:flex;align-items:center;gap:8px"><div style="position:relative;width:80px;height:8px;background:var(--sunken);border-radius:4px;flex:none"><span style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--line)"></span><span style="position:absolute;top:0;bottom:0;border-radius:4px;${r>=0?`left:50%;width:${w}%;background:var(--pos)`:`right:50%;width:${w}%;background:var(--neg)`}"></span></div><span class="${r>=0?'pos':'neg'}">${pct(r,1)}</span></div>`}</td>${S.isOwner?`<td>${delBtn('vcbf',l.id)}</td>`:''}</tr>`; }).join('')}
+        <tr class="total"><td>${L('Tổng')}</td><td></td><td>${fmtUnits(i.units)}</td><td>${fmtPrice(i.avg)}</td><td>${vnd(i.cost)}</td><td>${vnd(i.value)}</td><td class="${i.pl>=0?'pos':'neg'}">${signed(i.pl)}</td><td class="l ${i.pl>=0?'pos':'neg'}">${pct(i.plPct,2)}</td>${S.isOwner?'<td></td>':''}</tr>
       </tbody></table></div>` : `<div class="empty"><b>${L('Chưa có giao dịch')}</b>${L('Bấm “Giao dịch {p}” để thêm lần mua đầu tiên.', {p:esc(productLabel(p))})}</div>`}</div>
   </div>`;
 }
@@ -1209,63 +1221,9 @@ function viewSettings(){
   </div>
   ${viewLanguage()}
   ${viewAppearance()}
-  ${viewMembers()}
-  ${viewShortcuts()}`;
+  ${viewMembers()}`;
 }
 function navYears(){ const ys=[]; for(let k=firstYear(); k<curYear(); k++) ys.push(k); return ys; }
-/* ---------- iPhone Shortcuts (widget) ---------- */
-function loadTokens(){ if(S._tokensLoading || !window.FIN) return; S._tokensLoading=true;
-  FIN.listTokens().then(t=>{ S.tokens=t; }).catch(()=>{ S.tokens=[]; }).finally(()=>{ S._tokensLoading=false; scheduleRender(); }); }
-function copyBtn(text, label=L('Sao chép')){ return `<button class="btn xs" type="button" data-copy="${esc(text)}">${label}</button>`; }
-function viewShortcuts(){
-  const me = window.FIN?.session(); if(!me) return '';
-  if(!S.tokens) loadTokens();
-  const lq = I.get()==='vi'? '' : '?lang='+I.get();   // the shortcut answers in the language chosen here
-  const origin = location.origin, sumUrl = origin+'/api/shortcut/summary'+lq, addUrl = origin+'/api/shortcut/add'+lq;
-  const canAdd = me.role!=='viewer';
-  const fmtTs = ms => ms? fmtDateTime(new Date(ms)).slice(0,16) : L('chưa dùng');
-  return `<div class="card section-gap" id="shortcutCard"><div class="card-h"><h2>${L('Phím tắt & widget iPhone')}</h2><span class="sub">${L('Dùng ứng dụng Phím tắt có sẵn của Apple')}</span></div>
-    <div class="grid g-split">
-      <div class="stack" style="gap:14px">
-        <p class="hint" style="margin:0">${L('Ứng dụng web không tạo được widget riêng; ứng dụng <b>Phím tắt</b> của iPhone làm thay: đặt widget ra màn hình chính để <b>xem tình hình</b> hoặc <b>ghi chi tiêu</b> mà không cần mở ứng dụng. Mỗi người tạo một mã cho iPhone của mình; mã chỉ dùng được cho hai việc này và có thể thu hồi bất cứ lúc nào.')}</p>
-        <form id="tokenForm" class="row2" novalidate style="align-items:end">
-          <div class="field"><label for="tk-name">${L('Tên thiết bị')}</label><input class="input" id="tk-name" maxlength="40" value="${esc(L('iPhone của {name}', {name:me.name}))}"></div>
-          <div><button class="btn primary" type="submit">${ico(ICONS.plus)}${L('Tạo mã phím tắt')}</button></div>
-        </form>
-        ${S.newToken? `<div class="token-box"><b>${L('Mã của bạn — chỉ hiện một lần, hãy sao chép ngay:')}</b><code id="newToken">${esc(S.newToken)}</code><div class="top-actions">${copyBtn(S.newToken,L('Sao chép mã'))}${copyBtn('Bearer '+S.newToken,L('Sao chép “Bearer + mã”'))}<button class="btn xs ghost" type="button" data-hide-token>${L('Đã lưu, ẩn đi')}</button></div></div>` : ''}
-        <div class="list">${!S.tokens? `<div class="hint">${L('Đang tải…')}</div>` : !S.tokens.length? `<div class="hint">${L('Chưa có mã nào.')}</div>` :
-          S.tokens.map(t=>`<div class="row" style="grid-template-columns:auto minmax(0,1fr) auto"><span class="cat-ico" style="--c:var(--accent)">${ico('<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>')}</span><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="s">${L('Tạo {a} · dùng gần nhất {b}', {a:fmtTs(t.createdAt), b:fmtTs(t.lastUsed)})}</div></div><button class="btn xs danger" type="button" data-revoke-token="${esc(t.id)}">${L('Thu hồi')}</button></div>`).join('')}</div>
-      </div>
-      <div class="guide">
-        <b class="flabel">${L('Thông tin để điền vào Phím tắt')}</b>
-        <dl class="kv1">
-          <div><dt>${L('Xem tình hình (GET)')}</dt><dd><code>${esc(sumUrl)}</code>${copyBtn(sumUrl)}</dd></div>
-          ${canAdd? `<div><dt>${L('Ghi chi tiêu (POST, JSON)')}</dt><dd><code>${esc(addUrl)}</code>${copyBtn(addUrl)}</dd></div>` : ''}
-          <div><dt>${L('Tiêu đề (Headers)')}</dt><dd><code>Authorization</code> = <code>Bearer &lt;${L('mã')}&gt;</code></dd></div>
-          ${canAdd? `<div><dt>${L('Trường gửi đi')}</dt><dd>${L('<code>danh_muc</code> (vd: ăn uống, xăng, khám bệnh) · <code>so_tien</code> (250000 hoặc 250k) · <code>ghi_chu</code> · <code>loai</code> = chi / thu')}</dd></div>` : ''}
-        </dl>
-        <details class="howto" open><summary>${L('Tạo phím tắt “Xem tình hình”')}</summary><ol>
-          <li>${L('Mở ứng dụng <b>Phím tắt</b> › <b>+</b> › <b>Thêm tác vụ</b> › <b>Lấy nội dung của URL</b>; dán địa chỉ “Xem tình hình”.')}</li>
-          <li>${L('Bấm <b>›</b> mở rộng › <b>Tiêu đề</b> › Thêm: khóa <code>Authorization</code>, giá trị <code>Bearer</code> + mã (dùng nút “Sao chép Bearer + mã”).')}</li>
-          <li>${L('Thêm tác vụ <b>Hiển thị kết quả</b>. Đặt tên phím tắt “Tài chính hôm nay”.')}</li>
-        </ol></details>
-        ${canAdd? `<details class="howto"><summary>${L('Tạo phím tắt “Ghi chi tiêu”')}</summary><ol>
-          <li>${L('<b>Danh sách</b>: nhập các mục Ăn uống, Đi lại, Giúp việc, Điện nước, Mua sắm, Khám cho con, Phí quản lý.')}</li>
-          <li>${L('<b>Chọn từ danh sách</b> (lời nhắc: “Chi cho gì?”).')}</li>
-          <li>${L('<b>Yêu cầu đầu vào</b> › Số (lời nhắc: “Số tiền?”); thêm một <b>Yêu cầu đầu vào</b> Văn bản cho ghi chú nếu muốn.')}</li>
-          <li>${L('<b>Lấy nội dung của URL</b>: dán địa chỉ “Ghi chi tiêu”, <b>Phương thức</b> POST, thêm tiêu đề Authorization như trên, <b>Nội dung yêu cầu</b> JSON với các trường <code>danh_muc</code> = Mục đã chọn, <code>so_tien</code> = Đầu vào đã cung cấp, <code>ghi_chu</code> = ghi chú.')}</li>
-          <li>${L('Thêm <b>Hiển thị thông báo</b> với kết quả để thấy “Đã ghi … ₫”.')}</li>
-        </ol></details>` : ''}
-        <details class="howto"><summary>${L('Đặt widget ra màn hình chính')}</summary><ol>
-          <li>${L('Chạm giữ màn hình chính › <b>Sửa</b> › <b>Thêm tiện ích</b> › <b>Phím tắt</b>.')}</li>
-          <li>${L('Chọn cỡ widget, bấm <b>Thêm tiện ích</b>, rồi chạm vào widget để chọn phím tắt “Tài chính hôm nay” / “Ghi chi tiêu”.')}</li>
-          <li>${L('Có thể thêm vào màn hình khóa hoặc Trung tâm điều khiển theo cách tương tự.')}</li>
-        </ol></details>
-        <p class="hint">${L('Mở thẳng ô ghi chép trong ứng dụng:')} <code>${esc(origin)}/#ghi-chep</code> ${copyBtn(origin+'/#ghi-chep')}</p>
-      </div>
-    </div>
-  </div>`;
-}
 /* ---------- appearance: light / dark / follow device ---------- */
 const THEME_LABEL = i18nize({auto:'Theo thiết bị', light:'Sáng', dark:'Tối'});
 const THEME_ICON = {
@@ -1451,9 +1409,6 @@ main.addEventListener('click', async e=>{
   const t = e.target.closest('button, a, td[data-goto], tr[data-edit-lot], tr[data-product], tr[data-goto-row], tr[data-href], tr[data-set-year], path[data-seg]'); if(!t) return;
   const d = t.dataset;
   if(d.seg){ revealDonut(d.seg); return; }
-  if(d.copy!==undefined){ const txt=d.copy; try{ await navigator.clipboard.writeText(txt); toast(L('Đã sao chép')); }catch(e){ const r=document.createRange(); const el=t.parentElement.querySelector('code')||t; r.selectNodeContents(el); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); toast(L('Đã chọn sẵn, nhấn Ctrl+C để sao chép')); } return; }
-  if('hideToken' in d){ S.newToken=null; render(); return; }
-  if(d.revokeToken){ if(!arm(t,L('Bấm lần nữa để thu hồi'))) return; t.disabled=true; try{ await FIN.revokeToken(d.revokeToken); S.tokens=S.tokens.filter(x=>x.id!==d.revokeToken); toast(L('Đã thu hồi mã. Phím tắt dùng mã này sẽ ngừng hoạt động.')); render(); }catch(err){ toast(errMsg(err)); t.disabled=false; } return; }
   if(d.themeSet){ setTheme(d.themeSet); render(); toast(L('Giao diện: {mode}', {mode:THEME_LABEL[d.themeSet]})); return; }
   if(d.langSet){ setLang(d.langSet); return; }
   if(d.setYear){ setYear(+d.setYear); return; }
@@ -1493,6 +1448,9 @@ main.addEventListener('click', async e=>{
   if(d.moveSurplus){ const amt=+d.moveSurplus; const key=ymKey(S.year,S.month); t.disabled=true;
     const ok = await write(()=>db.collection('fund').doc('surplus-'+key).set({date:lastDayISO(S.year,S.month), fund:'emergency', type:'in', amount:amt, note:L('Thặng dư sinh hoạt {month}', {month:mYShort(S.month,S.year)}), ref:'surplus-'+key, by:S.meId, at:Date.now()}));
     if(ok) toast(L('Đã chuyển {v} ₫ vào Quỹ khẩn cấp', {v:vnd(amt)})); else t.disabled=false; return; }
+  if(d.withdrawSurplus){ openWithdraw(+d.withdrawSurplus); return; }
+  if('undoWithdraw' in d){ const key=ymKey(S.year,S.month); const body={...(S.months[key]||{})}; delete body.withdrawn;
+    if(await write(()=>db.collection('months').doc(key).set(body))) toast(L('Đã hoàn tác rút tiền')); return; }
   if(t.id==='mReset'){ const key=ymKey(S.year,S.month); for(const k of Object.keys(S.drafts)) if(k.startsWith(`m:${key}:`)) delete S.drafts[k]; render(); return; }
   if(d.export){ exportData(d.export); return; }
   if(t.id==='logoutBtn2'){ FIN.logout(); return; }
@@ -1505,21 +1463,19 @@ main.addEventListener('click', async e=>{
 const stripId = o => { const {id, ...rest} = o; return rest; };
 main.addEventListener('input', e=>{
   const el = e.target; const k = el.dataset.draft;
+  if('exact' in el.dataset){ const n = formatExact(el); const p = el.dataset.exactPrev && $('#'+el.dataset.exactPrev); if(p) p.innerHTML = exactPreview(n); }
+  if(el.dataset.mfield) liveGroup(el);
   if(k){ S.drafts[k] = el.value; }
-  if(el.dataset.amountPrev){ const p=$('#'+el.dataset.amountPrev); if(p) p.innerHTML = amountPreview(el.value); }
   if(el.dataset.mfield || el.id==='mf-note') updateMonthLive();
 });
 main.addEventListener('submit', async e=>{
   const f = e.target; e.preventDefault();
   if(f.id==='monthForm'){ saveMonth(); return; }
-  if(f.id==='tokenForm'){ const btn=f.querySelector('button[type=submit]'); btn.disabled=true;
-    try{ const r=await FIN.createToken($('#tk-name').value.trim()); S.newToken=r.token; S.tokens=[r.item, ...(S.tokens||[])]; render(); $('#shortcutCard')?.scrollIntoView({behavior:'smooth',block:'start'}); toast(L('Đã tạo mã. Sao chép ngay, mã chỉ hiện một lần.')); }
-    catch(err){ toast(errMsg(err)); } finally{ btn.disabled=false; } return; }
   if(f.dataset.fundForm){
     const fund = f.dataset.fundForm, k='ff:'+fund+':';
     const type = (f.querySelector('input[type=radio]:checked')||{}).value || 'in';
     const date = readDate(`ff-${fund}-date`); if(!date) return;
-    const amt = parseAmount(f.querySelector(`#ff-${fund}-amt`).value); const note = f.querySelector(`#ff-${fund}-note`).value.trim();
+    const amt = readExactAmount(f.querySelector(`#ff-${fund}-amt`)); const note = f.querySelector(`#ff-${fund}-note`).value.trim();
     if(!(amt>0)){ toast(L('Nhập số tiền lớn hơn 0')); f.querySelector(`#ff-${fund}-amt`).focus(); return; }
     const btn=f.querySelector('button[type=submit]'); btn.disabled=true;
     const ok = await write(()=>db.collection('fund').add({date, fund, type, amount:amt, note, by:S.meId, at:Date.now()}));
@@ -1573,6 +1529,7 @@ paintThemeBtn();
 $('#langSel')?.addEventListener('change', e=>setLang(e.target.value));
 document.addEventListener('langchange', ()=>{ paintLangSel(); paintThemeBtn(); if(!$('#sheet').hidden) closeSheet(); render(); toast(L('Đã chuyển sang tiếng Việt')); });
 paintLangSel();
+$('#logoutTop')?.addEventListener('click', ()=>FIN.logout());
 $('#addBtn').addEventListener('click', ()=>openTx({kind:quickKind()}));
 $('#fab').addEventListener('click', ()=>openTx({kind:quickKind()}));
 window.addEventListener('beforeunload', e=>{ if(Object.keys(S.drafts).some(k=>k.startsWith('m:'))){ const dv=monthDraftValues(S.year,S.month); if(dv._dirty){ e.preventDefault(); e.returnValue=''; } } });
@@ -1596,7 +1553,6 @@ function armDelete(btn, fn){
     btn.disabled=true; if(await fn()) closeSheet(); else btn.disabled=false;
   });
 }
-function bindAmount(input, prev){ const upd = ()=>{ prev.innerHTML = amountPreview(input.value); }; input.addEventListener('input', upd); upd(); }
 const closeBtn = () => `<button type="button" class="icon-btn" data-close aria-label="${L('Đóng')}">${ico(ICONS.close)}</button>`;
 
 function openResetPassword(id, name){
@@ -1626,14 +1582,14 @@ function openTx({kind='expense', doc=null}={}){
       : Object.entries(FUND_TYPES[st.kind]).map(([k,l])=>`<button type="button" class="pill" data-t="${k}" aria-pressed="${st.type===k}">${l}</button>`).join('');
     $('#catLabel').textContent = isFund? L('Loại giao dịch') : L('Danh mục');
   };
-  const quick = {vi:['50k','100k','200k','500k','1tr','5tr'], en:['50k','100k','200k','500k','1m','5m'], ja:['5万','10万','20万','50万','100万','500万']}[I.get()];
+  const quick = [50000, 100000, 200000, 500000, 1000000, 5000000];
   openSheet(`<form id="txForm" novalidate style="display:flex;flex-direction:column;gap:16px">
     <div class="panel-h"><h2>${isEdit?L('Sửa ghi chép'):L('Ghi chép nhanh')}</h2>${closeBtn()}</div>
     <div class="seg" id="kindSeg" role="group" aria-label="${L('Loại')}"></div>
     <div class="field"><label for="f-amt">${L('Số tiền')}</label>
-      <div class="amt-box"><input id="f-amt" autocomplete="off" inputmode="text" placeholder="0" value="${doc? vnd(doc.amount):''}"><span>₫</span></div>
+      <div class="amt-box"><input id="f-amt" autocomplete="off" inputmode="numeric" placeholder="0" value="${doc? vnd(doc.amount):''}"><span>₫</span></div>
       <div class="amt-prev" id="f-prev"></div>
-      <div class="pills" id="quick">${quick.map(q=>`<button type="button" class="pill" data-q="${q}">+${q}</button>`).join('')}</div>
+      <div class="pills" id="quick">${quick.map(q=>`<button type="button" class="pill" data-q="${q}">+${compact(q)}</button>`).join('')}</div>
     </div>
     <div class="field"><span class="flabel" id="catLabel">${L('Danh mục')}</span><div class="pills" id="catPills"></div></div>
     <div class="row2">
@@ -1644,13 +1600,13 @@ function openTx({kind='expense', doc=null}={}){
     <div class="panel-actions">${isEdit?`<button type="button" class="btn danger" id="delBtn">${L('Xóa')}</button><span class="spacer"></span>`:''}<button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${isEdit?L('Lưu thay đổi'):L('Lưu')}</button></div>
   </form>`);
   draw();
-  const amt=$('#f-amt'); bindAmount(amt, $('#f-prev'));
+  const amt=$('#f-amt'); bindExactAmount(amt, $('#f-prev'));
   $('#kindSeg').addEventListener('click', e=>{ const b=e.target.closest('button[data-k]'); if(!b||b.disabled) return; st.kind=b.dataset.k; if(st.kind==='expense' && !CAT[st.cat]) st.cat='food'; if(st.kind==='income' && !INC[st.cat]) st.cat='income'; draw(); });
   $('#catPills').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; if(b.dataset.c) st.cat=b.dataset.c; if(b.dataset.t) st.type=b.dataset.t; draw(); });
-  $('#quick').addEventListener('click', e=>{ const b=e.target.closest('button[data-q]'); if(!b) return; const cur=amt.value.trim(); amt.value = cur? cur.replace(/\./g,'')+'+'+b.dataset.q : b.dataset.q; amt.dispatchEvent(new Event('input')); amt.focus(); });
+  $('#quick').addEventListener('click', e=>{ const b=e.target.closest('button[data-q]'); if(!b) return; amt.value = I.int((readExactAmount(amt)||0) + +b.dataset.q); amt.dispatchEvent(new Event('input')); amt.focus(); });
   $('#txForm').addEventListener('submit', async e=>{
     e.preventDefault();
-    const a = parseAmount(amt.value); if(!(a>0)){ toast(L('Nhập số tiền lớn hơn 0')); amt.focus(); return; }
+    const a = readExactAmount(amt); if(!(a>0)){ toast(L('Nhập số tiền lớn hơn 0')); amt.focus(); return; }
     const date = readDate('f-date'); if(!date) return; const note=$('#f-note').value.trim();
     const isFund = st.kind==='emergency'||st.kind==='savings';
     const btn = e.submitter || $('#txForm button[type=submit]'); btn.disabled=true;
@@ -1671,14 +1627,30 @@ function openTx({kind='expense', doc=null}={}){
 
 /** Amount in words in the current language, e.g. 2.500.000.000 → "Hai tỷ năm trăm triệu đồng". */
 const readVND = n => I.words(n);
-/** Exact amount field: digits only, thousands separators added while typing, amount read out in words. */
-function bindExactAmount(input, prev){
-  const upd = ()=>{ const digits = input.value.replace(/\D/g,'').replace(/^0+(?=\d)/,'').slice(0,16);
-    const pos = input.selectionStart, before = input.value.length;
-    input.value = digits? I.int(+digits) : '';
-    try{ const p = Math.max(0, pos + (input.value.length-before)); input.setSelectionRange(p,p); }catch(e){}
-    prev.innerHTML = digits? `= ${input.value} ₫ · <span class="words">${esc(readVND(+digits))}</span>` : L('Nhập đầy đủ số tiền đến hàng đơn vị, ví dụ {ex}', {ex:I.int(2500000000)}); prev.classList.remove('bad'); };
+/** Put the caret back after the same number of significant characters once a value has been reformatted. */
+function keepCaret(input, out, before, sig){ let p=0, c=0; while(p<out.length && c<before){ if(sig.test(out[p])) c++; p++; } try{ input.setSelectionRange(p,p); }catch(e){} }
+/** Exact amount: digits only, thousand separators shown while typing (2.500.000). Returns the number. */
+function formatExact(input){
+  const raw = input.value, pos = input.selectionStart ?? raw.length;
+  const digits = raw.replace(/\D/g,'').replace(/^0+(?=\d)/,'').slice(0,15);
+  const out = digits? I.int(+digits) : '';
+  if(out!==raw){ const before = raw.slice(0,pos).replace(/\D/g,'').length; input.value = out; keepCaret(input, out, before, /\d/); }
+  return digits? +digits : NaN;
+}
+const exactPreview = n => n>0 ? `= ${vnd(n)} ₫ · <span class="words">${esc(readVND(n))}</span>` : L('Nhập đầy đủ số tiền đến hàng đơn vị, ví dụ {ex}', {ex:I.int(2500000000)});
+/** Exact amount field in a sheet: formats while typing and reads the amount out in words. */
+function bindExactAmount(input, prev, onChange){
+  const upd = ()=>{ const n = formatExact(input); if(prev){ prev.innerHTML = exactPreview(n); prev.classList.remove('bad'); } if(onChange) onChange(n); };
   input.addEventListener('input', upd); upd();
+}
+/** Monthly figures keep their shorthand (12tr, 250k+300k); plain numbers get separators while typing. */
+function liveGroup(input){
+  const raw = input.value, pos = input.selectionStart ?? raw.length; let changed = false;
+  const out = raw.split('+').map(p=>{ const t=p.trim(); if(!/^[\d.,]+$/.test(t)) return p;
+    const d = t.replace(/[.,]/g,'').replace(/^0+(?=\d)/,'').slice(0,15); if(!d) return p;
+    const g = I.int(+d); if(g!==p) changed = true; return g; }).join('+');
+  if(!changed) return;
+  const before = raw.slice(0,pos).replace(/[^\d+]/g,'').length; input.value = out; keepCaret(input, out, before, /[\d+]/);
 }
 const readExactAmount = el => { const d = String(el.value).replace(/\D/g,''); return d? +d : NaN; };
 const depMaturity = d => d.maturity || addMonths(d.start, +d.term||1);
@@ -1750,6 +1722,27 @@ function openDeposit(doc=null){
   if(doc) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('deposits').doc(doc.id).delete()); if(ok) toast(L('Đã xóa sổ')); return ok; });
 }
 
+/** Withdraw (part of) a month's surplus as cash instead of moving it to the emergency fund. */
+function openWithdraw(max){
+  const y=S.year, m=S.month, key=ymKey(y,m);
+  openSheet(`<form id="wdForm" novalidate style="display:flex;flex-direction:column;gap:14px">
+    <div class="panel-h"><h2>${L('Rút tiền thặng dư {month}', {month:monthIn(y,m)})}</h2>${closeBtn()}</div>
+    <p class="hint" style="margin:0">${L('Ghi nhận khoản thặng dư đã rút ra dùng, không chuyển vào Quỹ khẩn cấp. Thặng dư tháng này: {v} ₫.', {v:`<b class="num">${vnd(max)}</b>`})}</p>
+    <div class="field"><label for="w-amt">${L('Số tiền rút')}</label><div class="amt-box"><input id="w-amt" inputmode="numeric" autocomplete="off" value="${vnd(max)}"><span>₫</span></div><div class="amt-prev" id="w-prev"></div></div>
+    <div class="field"><label for="w-note">${L('Ghi chú')}</label><input class="input" id="w-note" maxlength="200" placeholder="${L('vd: Rút tiền mặt chi tiêu gia đình')}"></div>
+    <div class="panel-actions"><button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${L('Xác nhận rút tiền')}</button></div>
+  </form>`);
+  bindExactAmount($('#w-amt'), $('#w-prev'));
+  $('#wdForm').addEventListener('submit', async e=>{ e.preventDefault();
+    const a = readExactAmount($('#w-amt'));
+    if(!(a>0)){ toast(L('Nhập số tiền lớn hơn 0')); $('#w-amt').focus(); return; }
+    if(a>max){ toast(L('Số tiền rút không vượt quá thặng dư {v} ₫', {v:vnd(max)})); $('#w-amt').focus(); return; }
+    const btn=e.target.querySelector('button[type=submit]'); btn.disabled=true;
+    const body = {...(S.months[key]||{}), withdrawn:{amount:a, note:$('#w-note').value.trim(), date:todayISO(), by:S.meId, at:Date.now()}};
+    if(await write(()=>db.collection('months').doc(key).set(body))){ toast(L('Đã ghi nhận rút {v} ₫', {v:vnd(a)})); closeSheet(); } else btn.disabled=false;
+  });
+}
+
 function openLot(doc=null, productId=null){
   const plist = products();
   if(!plist.length){ toast(L('Tạo sản phẩm đầu tư trước, rồi thêm giao dịch.')); openProduct(); return; }
@@ -1769,25 +1762,25 @@ function openLot(doc=null, productId=null){
       <div class="field"><label for="l-date">${L('Ngày giao dịch')}</label>${dateInput('l-date', doc?.date||defaultDateISO())}</div>
       <div class="field"><label for="l-price">${L('Giá / đơn vị')}</label><input class="input num" id="l-price" inputmode="decimal" value="${price0? I.decIn(price0):''}" placeholder="${L('vd: 13732,75')}"></div>
     </div>
-    <div class="field"><label for="l-amt">${L('Số tiền giao dịch')}</label><div class="amt-box"><input id="l-amt" autocomplete="off" value="${doc? vnd((+doc.units)*(+doc.price)) : ''}" placeholder="${L('vd: 10tr')}"><span>₫</span></div><div class="amt-prev" id="l-prev"></div></div>
+    <div class="field"><label for="l-amt">${L('Số tiền giao dịch')}</label><div class="amt-box"><input id="l-amt" autocomplete="off" inputmode="numeric" value="${doc? vnd((+doc.units)*(+doc.price)) : ''}" placeholder="${I.int(10000000)}"><span>₫</span></div><div class="amt-prev" id="l-prev"></div></div>
     <div class="row2">
       <div class="field"><label for="l-units">${L('Số lượng')}</label><input class="input num" id="l-units" inputmode="decimal" value="${doc? I.decIn(doc.units):''}"><span class="hint">${L('Tự tính = số tiền ÷ giá. Sửa theo sao kê nếu khác.')}</span></div>
-      <div class="field"><label for="l-fee">${L('Phí giao dịch (nếu có)')}</label><input class="input num" id="l-fee" inputmode="decimal" value="${doc?.fee? vnd(doc.fee):''}" placeholder="0"></div>
+      <div class="field"><label for="l-fee">${L('Phí giao dịch (nếu có)')}</label><input class="input num" id="l-fee" inputmode="numeric" autocomplete="off" value="${doc?.fee? vnd(doc.fee):''}" placeholder="0"></div>
     </div>
     <div class="field"><label for="l-note">${L('Ghi chú')}</label><input class="input" id="l-note" value="${esc(doc?.note||'')}" placeholder="${L('vd: Mua định kỳ tháng 10')}"></div>
     <p class="hint" style="margin:0" id="l-sellhint" ${side0==='sell'?'':'hidden'}>${L('Khi bán, lãi/lỗ đã chốt được tính theo giá vốn bình quân của sản phẩm.')}</p>
-    <div class="panel-actions">${doc?`<button type="button" class="btn danger" id="delBtn">${L('Xóa')}</button><span class="spacer"></span>`:''}<button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${L('Lưu giao dịch')}</button></div>
+    <div class="panel-actions">${doc && S.isOwner?`<button type="button" class="btn danger" id="delBtn">${L('Xóa')}</button><span class="spacer"></span>`:''}<button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${L('Lưu giao dịch')}</button></div>
   </form>`);
-  bindAmount($('#l-amt'),$('#l-prev'));
-  const calc=()=>{ const a=parseAmount($('#l-amt').value), p=parseDecimal($('#l-price').value); if(a>0&&p>0) $('#l-units').value=I.decIn(Math.floor(a/p*100)/100); };
-  $('#l-amt').addEventListener('input',calc); $('#l-price').addEventListener('input',calc);
+  const calc=()=>{ const a=readExactAmount($('#l-amt')), p=parseDecimal($('#l-price').value); if(a>0&&p>0) $('#l-units').value=I.decIn(Math.floor(a/p*100)/100); };
+  bindExactAmount($('#l-amt'), $('#l-prev'), calc); bindExactAmount($('#l-fee'));
+  $('#l-price').addEventListener('input',calc);
   $('#l-prod').addEventListener('change', ()=>{ const p = products().find(x=>x.id===$('#l-prod').value); if(p?.price && !doc){ $('#l-price').value=I.decIn(p.price); calc(); } });
   $('#l-newprod').addEventListener('click', ()=>openProduct());
   $$('#lotForm input[name=l-side]').forEach(r=>r.addEventListener('change', ()=>{ $('#l-sellhint').hidden = $('#lotForm input[name=l-side]:checked').value!=='sell'; }));
   $('#lotForm').addEventListener('submit', async e=>{ e.preventDefault();
     const product=$('#l-prod').value, side=$('#lotForm input[name=l-side]:checked').value;
     const price=parseDecimal($('#l-price').value), units=parseDecimal($('#l-units').value);
-    const fee = $('#l-fee').value.trim()? parseAmount($('#l-fee').value) : 0;
+    const fee = $('#l-fee').value.trim()? readExactAmount($('#l-fee')) : 0;
     if(!(price>0)||!(units>0)){ toast(L('Nhập giá và số lượng lớn hơn 0')); return; }
     if(isNaN(fee)||fee<0){ toast(L('Phí giao dịch chưa hợp lệ')); return; }
     if(side==='sell'){ const p = products().find(x=>x.id===product); const held = productStats(p).units + (doc && doc.side==='sell' && (doc.product||LEGACY_PRODUCT)===product ? +doc.units||0 : 0) - (doc && doc.side!=='sell' && (doc.product||LEGACY_PRODUCT)===product ? +doc.units||0 : 0);
@@ -1796,7 +1789,7 @@ function openLot(doc=null, productId=null){
     const body={product, side, date:lotDate, price, units, fee, note:$('#l-note').value.trim(), at:doc?.at||Date.now()};
     if(await write(()=> doc? db.collection('vcbf').doc(doc.id).set(body) : db.collection('vcbf').add(body))){ S.product=product; toast(side==='sell'? L('Đã lưu giao dịch bán') : L('Đã lưu giao dịch mua')); closeSheet(); }
   });
-  if(doc) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('vcbf').doc(doc.id).delete()); if(ok) toast(L('Đã xóa giao dịch')); return ok; });
+  if(doc && S.isOwner) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('vcbf').doc(doc.id).delete()); if(ok) toast(L('Đã xóa giao dịch')); return ok; });
 }
 
 function openProduct(doc=null){
@@ -1862,6 +1855,7 @@ async function boot(){
   if(user){
     try{ S.meId = await user.id(); }catch(e){}
     try{ const w = await user.can('data.write'); if(w===false) S.canWrite=false; }catch(e){}
+    S.isOwner = window.FIN?.session()?.role==='owner';
     try{ const me = await user.me(); const role = window.FIN?.session()?.role;
       $('#meBox').innerHTML = `<img alt="" src="${esc(me.avatarUrl)}"><div style="min-width:0;flex:1"><b class="me-name"></b><span class="me-role">${ROLE_LABEL[role]||''}</span></div><button class="icon-btn" type="button" id="logoutBtn" aria-label="Đăng xuất" title="Đăng xuất" data-i18n-attr="aria-label,title">${ico('<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/>')}</button>`;
       I.apply($('#meBox'));

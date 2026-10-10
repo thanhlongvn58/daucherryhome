@@ -4,9 +4,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { openStore, COLLECTIONS, ID_RE, backupToDocs } from './store.js';
 import { createAuth, httpError, ROLES } from './auth.js';
-import { buildSummary, addFromShortcut, shortcutLang, shortcutMessage } from './shortcut.js';
 
 const COOKIE = 'stc_session';
+const OWNER_DELETE = new Set(['vcbf']);
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8',
@@ -58,9 +58,10 @@ export function createApp(cfg) {
     }
     return out;
   }
+  /** maxAge null → a browser-session cookie (gone when the browser closes); used unless "remember me" is ticked. */
   function sessionCookie(req, token, maxAge) {
     const secure = cfg.cookieSecure || isHttps(req);
-    return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
+    return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax${maxAge == null ? '' : '; Max-Age=' + maxAge}${secure ? '; Secure' : ''}`;
   }
   async function readJson(req, limit = 256 * 1024) {
     const type = String(req.headers['content-type'] || '');
@@ -69,14 +70,6 @@ export function createApp(cfg) {
     for await (const c of req) { size += c.length; if (size > limit) throw httpError(413, 'Dữ liệu gửi lên quá lớn.'); chunks.push(c); }
     try { return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
     catch { throw httpError(400, 'Dữ liệu JSON không hợp lệ.'); }
-  }
-  async function readBody(req) {
-    const type = String(req.headers['content-type'] || '');
-    if (type.startsWith('application/x-www-form-urlencoded')) {
-      let raw = ''; for await (const c of req) { raw += c; if (raw.length > 64 * 1024) throw httpError(413, 'Dữ liệu gửi lên quá lớn.'); }
-      return Object.fromEntries(new URLSearchParams(raw));
-    }
-    return readJson(req, 64 * 1024);
   }
   /** Reject cross-site state-changing requests. Same-origin fetches always carry Origin on POST/PUT/PATCH/DELETE. */
   function checkOrigin(req) {
@@ -109,22 +102,22 @@ export function createApp(cfg) {
     return { logos: Object.fromEntries(files.map(f => [f.replace(/\.[^.]+$/, '').toLowerCase(), '/banks/' + f])) };
   });
 
-  route('GET', '/api/session', ({ user }) => user ? { user } : { user: null, needsSetup: auth.needsSetup() }, { public: true });
+  route('GET', '/api/session', ({ user }) => user ? { user, idleMinutes: cfg.sessionIdleMinutes } : { user: null, needsSetup: auth.needsSetup() }, { public: true });
 
   route('POST', '/api/setup', async ({ req, res }) => {
     if (!auth.needsSetup()) throw httpError(409, 'Sổ đã được thiết lập. Hãy đăng nhập.');
     const b = await readJson(req);
     const user = await auth.createUser({ ...b, role: 'owner' });
     const token = auth.startSession(user.id);
-    res.setHeader('Set-Cookie', sessionCookie(req, token, auth.sessionMaxAge()));
+    res.setHeader('Set-Cookie', sessionCookie(req, token, null));
     return { user };
   }, { public: true });
 
   route('POST', '/api/login', async ({ req, res }) => {
     const b = await readJson(req);
     const { token, user } = await auth.login(b.username, b.password, clientIp(req));
-    res.setHeader('Set-Cookie', sessionCookie(req, token, auth.sessionMaxAge()));
-    return { user };
+    res.setHeader('Set-Cookie', sessionCookie(req, token, b.remember === true ? auth.sessionMaxAge() : null));
+    return { user, idleMinutes: cfg.sessionIdleMinutes };
   }, { public: true });
 
   route('POST', '/api/logout', ({ req, res, token }) => {
@@ -204,28 +197,11 @@ export function createApp(cfg) {
   });
   route('DELETE', '/api/d/:col/:id', ({ user, params }) => {
     needRole(user, 'owner', 'member'); checkCol(params.col); checkId(params.id);
+    if (OWNER_DELETE.has(params.col)) needRole(user, 'owner');   // investment transactions: only the owner deletes
     store.remove(params.col, params.id, user.id);
     broadcast(params.col);
     return { ok: true };
   });
-
-  // Shortcut tokens — each person manages their own (session login only)
-  route('GET', '/api/tokens', ({ user }) => ({ tokens: auth.listApiTokens(user.id) }));
-  route('POST', '/api/tokens', async ({ req, user }) => { const b = await readJson(req); return auth.createApiToken(user.id, b.name); });
-  route('DELETE', '/api/tokens/:id', ({ user, params }) => { auth.revokeApiToken(user.id, params.id); return { ok: true }; });
-
-  // iPhone Shortcuts: plain-text answers (add ?format=json for JSON). Auth: "Authorization: Bearer stc_…".
-  const sendText = (res, status, text) => { res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(text); };
-  route('GET', '/api/shortcut/summary', ({ res, url }) => {
-    const s = buildSummary(store, new Date(), url.searchParams.get('lang'));
-    if (url.searchParams.get('format') === 'json') send(res, 200, s.data); else sendText(res, 200, s.text);
-  }, { token: true, raw: true });
-  route('POST', '/api/shortcut/add', async ({ req, res, user, url }) => {
-    needRole(user, 'owner', 'member');
-    const r = addFromShortcut(store, user, await readBody(req), url.searchParams.get('lang'));
-    broadcast('tx');
-    if (url.searchParams.get('format') === 'json') send(res, 200, { ok: true, message: r.message, doc: r.doc }); else sendText(res, 200, r.message);
-  }, { token: true, raw: true });
 
   // Backup / restore
   route('GET', '/api/export', ({ res }) => {
@@ -287,12 +263,8 @@ export function createApp(cfg) {
       if (!r) throw httpError(routes.some(x => x.re.test(pathname)) ? 405 : 404, 'Không có API này.');
       if (req.method !== 'GET') checkOrigin(req);
       const token = parseCookies(req)[COOKIE];
-      let user = auth.resolve(token);
-      if (!user && r.token) {
-        const m = /^Bearer\s+(\S+)$/i.exec(String(req.headers.authorization || ''));
-        if (m) { user = auth.resolveApiToken(m[1]); if (!user) throw httpError(401, 'Mã phím tắt không đúng hoặc đã bị thu hồi. Tạo mã mới trong Thiết lập › Phím tắt iPhone.'); }
-      }
-      if (!r.public && !user) throw httpError(401, r.token ? 'Thiếu mã phím tắt. Thêm tiêu đề Authorization: Bearer <mã> trong Phím tắt.' : 'Phiên đăng nhập đã hết. Hãy đăng nhập lại.');
+      const user = auth.resolve(token);
+      if (!r.public && !user) throw httpError(401, 'Phiên đăng nhập đã hết. Hãy đăng nhập lại.');
       const params = r.re.exec(pathname).groups || {};
       const out = await r.handler({ req, res, user, token, params, url });
       if (!r.raw) send(res, 200, out);
@@ -301,7 +273,6 @@ export function createApp(cfg) {
       if (status >= 500) console.error(`[${new Date().toISOString()}] ${req.method} ${pathname}`, e);
       const message = status >= 500 ? 'Máy chủ gặp lỗi. Thử lại sau.' : e.message;
       if (res.headersSent) res.end();
-      else if (r?.token && url.searchParams.get('format') !== 'json') { res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); const lang = shortcutLang(url.searchParams.get('lang')); res.end(shortcutMessage(lang, 'Lỗi: ') + (e.translated ? message : shortcutMessage(lang, message))); }
       else send(res, status, { code: e.code || 'unavailable', message });
     } finally {
       if (cfg.logRequests && pathname !== '/api/stream') console.log(`${req.method} ${pathname} ${res.statusCode} ${Date.now() - started}ms`);

@@ -187,59 +187,38 @@ test('live stream sends change events', async () => {
   ctrl.abort();
 });
 
-test('iPhone shortcut tokens: summary, quick add, scope and revoke', async () => {
-  const created = await owner('POST', '/api/tokens', { name: 'iPhone của Bố' });
-  assert.equal(created.status, 200);
-  const tok = created.json.token;
-  assert.match(tok, /^stc_/);
-  assert.equal((await owner('GET', '/api/tokens')).json.tokens[0].name, 'iPhone của Bố');
-  const bearer = { Authorization: `Bearer ${tok}` };
-  const raw = (method, path, body, headers = {}) => fetch(base + path, { method, headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+test('remember me keeps the cookie across browser restarts; otherwise it is a session cookie', async () => {
+  const plain = await client()('POST', '/api/login', { username: 'me.dau', password: 'mat-khau-moi-1' });
+  assert.equal(plain.status, 200);
+  assert.doesNotMatch(plain.headers.get('set-cookie'), /Max-Age/);
+  assert.equal(plain.json.idleMinutes, 20);
+  const kept = await client()('POST', '/api/login', { username: 'me.dau', password: 'mat-khau-moi-1', remember: true });
+  assert.match(kept.headers.get('set-cookie'), /Max-Age=\d+/);
+});
 
-  const sum = await raw('GET', '/api/shortcut/summary', undefined, bearer);
-  assert.equal(sum.status, 200);
-  assert.match(sum.headers.get('content-type'), /text\/plain/);
-  const sumText = await sum.text();
-  assert.match(sumText, /Sổ Tài Chính[\s\S]*Tài sản ròng/);
-  // fixture: savings 100tr + emergency 25tr + fund 1.000 CCQ × 10.500 = 135,5tr (catches a portfolio priced at 0)
-  assert.match(sumText, /Tài sản ròng: 135,5 tr/);
+test('only the owner can delete investment transactions', async () => {
+  const lot = await member('POST', '/api/c/vcbf', { data: { product: 'p1', side: 'buy', date: '2026-10-01', units: 10, price: 10000 } });
+  assert.equal(lot.status, 200);
+  const id = lot.json.doc.id;
+  assert.equal((await member('DELETE', `/api/d/vcbf/${id}`)).status, 403);
+  assert.equal((await owner('DELETE', `/api/d/vcbf/${id}`)).status, 200);
+});
 
-  const none = await raw('GET', '/api/shortcut/summary');
-  assert.equal(none.status, 401);
-  assert.match(await none.text(), /^Lỗi: Thiếu mã phím tắt/);
-  assert.equal((await raw('GET', '/api/shortcut/summary', undefined, { Authorization: 'Bearer stc_sai' })).status, 401);
+test('the iPhone shortcut endpoints are gone', async () => {
+  assert.equal((await owner('GET', '/api/tokens')).status, 404);
+  assert.equal((await fetch(base + '/api/shortcut/summary')).status, 404);
+});
 
-  const before = (await owner('GET', '/api/c/tx')).json.docs.length;
-  const add = await raw('POST', '/api/shortcut/add', { danh_muc: 'ăn sáng', so_tien: '250k', ghi_chu: 'Phở' }, bearer);
-  assert.equal(add.status, 200);
-  assert.match(await add.text(), /^Đã ghi Ăn uống & sinh hoạt −250\.000 ₫/);
-  const form = await fetch(base + '/api/shortcut/add', { method: 'POST', headers: { ...bearer, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'loai=thu&danh_muc=thưởng&so_tien=1000000' });
-  assert.equal(form.status, 200);
-  const docs = (await owner('GET', '/api/c/tx')).json.docs;
-  assert.equal(docs.length, before + 2);
-  assert.ok(docs.some(d => d.data.cat === 'bonus' && d.data.kind === 'income' && d.data.amount === 1000000));
-
-  const bad = await raw('POST', '/api/shortcut/add', { danh_muc: 'xyz', so_tien: 100000 }, bearer);
-  assert.equal(bad.status, 400);
-  assert.match(await bad.text(), /Không nhận ra danh mục/);
-
-  // the same endpoints answer in English or Japanese with ?lang=
-  assert.match(await (await raw('GET', '/api/shortcut/summary?lang=en', undefined, bearer)).text(), /^Family Finance[\s\S]*Net worth: 135\.5M/);
-  assert.match(await (await raw('GET', '/api/shortcut/summary?lang=ja', undefined, bearer)).text(), /^家計簿[\s\S]*純資産：1\.3\d億/);
-  assert.match(await (await raw('GET', '/api/shortcut/summary?lang=en')).text(), /^Error: Missing shortcut code/);
-  assert.match(await (await raw('POST', '/api/shortcut/add?lang=en', { danh_muc: 'fuel', so_tien: '50k' }, bearer)).text(), /^Recorded Transport −50,000 ₫/);
-  assert.match(await (await raw('POST', '/api/shortcut/add?lang=ja', { danh_muc: '食費', so_tien: '25万' }, bearer)).text(), /^食費・日用品 −250,000 ₫ を記録しました/);
-  assert.match(await (await raw('POST', '/api/shortcut/add?lang=en', { danh_muc: 'xyz', so_tien: 1 }, bearer)).text(), /^Error: Unknown category "xyz"/);
-  // a shortcut token only opens the shortcut endpoints
-  assert.equal((await raw('GET', '/api/c/tx', undefined, bearer)).status, 401);
-
-  // read-only members cannot add through a shortcut
-  const v = client();
-  await v('POST', '/api/login', { username: 'ba.ngoai', password: '12345678' });
-  const vt = (await v('POST', '/api/tokens', { name: 'iPad' })).json.token;
-  assert.equal((await raw('POST', '/api/shortcut/add', { danh_muc: 'xăng', so_tien: 50000 }, { Authorization: `Bearer ${vt}` })).status, 403);
-
-  const id = (await owner('GET', '/api/tokens')).json.tokens[0].id;
-  assert.equal((await owner('DELETE', `/api/tokens/${id}`)).status, 200);
-  assert.equal((await raw('GET', '/api/shortcut/summary', undefined, bearer)).status, 401);
+test('a session ends after the idle limit', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stc-idle-'));
+  const app2 = createApp(loadConfig({}, { dataDir: d, backupHours: 0, sessionIdleMinutes: 0.002 }));   // ≈ 120 ms
+  const { port } = await app2.listen(0, '127.0.0.1');
+  const b2 = `http://127.0.0.1:${port}`;
+  try {
+    const r = await fetch(b2 + '/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: b2 }, body: JSON.stringify({ name: 'A', username: 'aaa', password: 'mat-khau-dai' }) });
+    const cookie = r.headers.get('set-cookie').split(';')[0];
+    assert.equal((await fetch(b2 + '/api/c/tx', { headers: { Cookie: cookie } })).status, 200);
+    await new Promise(res => setTimeout(res, 300));
+    assert.equal((await fetch(b2 + '/api/c/tx', { headers: { Cookie: cookie } })).status, 401);
+  } finally { await app2.close(); fs.rmSync(d, { recursive: true, force: true }); }
 });

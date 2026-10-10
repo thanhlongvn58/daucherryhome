@@ -153,7 +153,56 @@
     if (!r.user) { location.replace(r.needsSetup ? '/login?setup=1' : '/login?next=' + encodeURIComponent(location.pathname + location.hash)); return new Promise(() => {}); }
     session = r.user;
     loadMembers().catch(() => {});
+    startIdleWatch(r.idleMinutes);
   });
+
+  /* ---------- automatic sign-out after inactivity ----------
+     Any tap, key, scroll or pointer movement counts as activity; the time is shared between tabs.
+     One minute before the limit a notice offers to continue. The server keeps the same limit, so a
+     closed or sleeping device is signed out too; while active, the session is refreshed at most once a minute. */
+  const ACT_KEY = 'stc.lastActive';
+  const tr = (s, v) => (window.STCI18n ? STCI18n.t(s, v) : s);
+  function startIdleWatch(minutes) {
+    const limit = (minutes == null ? 20 : +minutes) * 60_000;
+    if (!(limit > 0)) return;
+    let last = Date.now(), lastPing = Date.now(), lastSave = 0, warn = null, gone = false;
+    const read = () => { let v = 0; try { v = +localStorage.getItem(ACT_KEY) || 0; } catch { /* private mode */ } return Math.max(last, v); };
+    const hide = () => { if (warn) { warn.remove(); warn = null; } };
+    function active() {
+      const t = Date.now(); last = t; hide();
+      if (t - lastSave > 5000) { lastSave = t; try { localStorage.setItem(ACT_KEY, String(t)); } catch { /* private mode */ } }
+      if (t - lastPing > 60_000) {
+        lastPing = t;
+        fetch('/api/session', { credentials: 'same-origin' }).then(r => r.json()).then(j => { if (!j.user) signOut(); }).catch(() => {});
+      }
+    }
+    function signOut() {
+      if (gone) return; gone = true;
+      fetch('/api/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}', keepalive: true })
+        .catch(() => {}).finally(() => location.replace('/login?timeout=1'));
+    }
+    function check() {
+      const left = limit - (Date.now() - read());
+      if (left <= 0) { signOut(); return; }
+      if (left <= 60_000) {
+        if (!warn) {
+          warn = document.createElement('div');
+          warn.className = 'idle-warn'; warn.setAttribute('role', 'alertdialog'); warn.setAttribute('aria-live', 'assertive');
+          warn.innerHTML = '<div><b></b><span></span></div><button type="button" class="btn primary sm"></button>';
+          warn.querySelector('b').textContent = tr('Bạn còn đang làm việc chứ?');
+          warn.querySelector('button').textContent = tr('Tiếp tục làm việc');
+          warn.querySelector('button').addEventListener('click', active);
+          document.body.append(warn);
+        }
+        warn.querySelector('span').textContent = tr('Để bảo vệ thông tin, sổ sẽ tự đăng xuất sau {n} giây.', { n: Math.ceil(left / 1000) });
+      } else hide();
+    }
+    for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'scroll']) document.addEventListener(ev, () => { if (!gone) active(); }, { capture: true, passive: true });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    window.addEventListener('focus', check);
+    try { localStorage.setItem(ACT_KEY, String(Date.now())); } catch { /* private mode */ }
+    setInterval(check, 1000);
+  }
 
   window.claude = { use: async name => { await ready; return { db, user, downloads }[name] ?? null; } };
 
@@ -167,9 +216,6 @@
     updateMember: (id, b) => api('PATCH', '/api/members/' + encodeURIComponent(id), b).then(r => { members = null; loadMembers(); if (id === session?.id && r.member) session = { ...session, ...r.member }; return r.member; }),
     removeMember: id => api('DELETE', '/api/members/' + encodeURIComponent(id)).then(() => { members = null; loadMembers(); }),
     importBackup: backup => api('POST', '/api/import', { backup }),
-    listTokens: () => api('GET', '/api/tokens').then(r => r.tokens),
-    createToken: name => api('POST', '/api/tokens', { name }),
-    revokeToken: id => api('DELETE', '/api/tokens/' + encodeURIComponent(id)),
-    async logout() { try { await api('POST', '/api/logout', {}); } finally { location.replace('/login'); } },
+    async logout(reason) { try { await api('POST', '/api/logout', {}); } finally { location.replace(reason === 'timeout' ? '/login?timeout=1' : '/login'); } },
   };
 })();
