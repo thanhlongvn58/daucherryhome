@@ -920,9 +920,8 @@ function viewSpending(){
           <div><span>${L('Thặng dư')}</span><b id="mt-sur" class="${liveSur<0?'neg':'pos'}">${signed(liveSur)}</b></div>
           <div><span>${L('Tỷ lệ tiết kiệm')}</span><b id="mt-rate">${pctPlain(liveInc? liveSur/liveInc : NaN)}</b></div>
         </div>
-        ${S.canWrite? `<div class="mfoot"><span class="unsaved" id="mUnsaved" ${dv._dirty?'':'hidden'}>${L('Có thay đổi chưa lưu')}</span><span></span>
-          <div class="top-actions"><button class="btn" type="button" id="mReset" ${dv._dirty?'':'disabled'}>${L('Hoàn tác')}</button><button class="btn primary" type="submit" id="mSave" ${dv._dirty?'':'disabled'}>${L('Lưu số liệu tháng')}</button></div></div>
-          <p class="hint" style="margin:8px 0 0">${L('Cộng dồn ngay trong ô: gõ số hiện có rồi bấm + (hoặc −) và nhập khoản mới, ví dụ 12.500.000+300.000−50.000. Gõ tắt vẫn được: 12tr, 2tr5, 250k.')}</p>` : ''}
+        ${S.canWrite? `<p class="hint m-auto" style="margin:12px 0 0">${ico(ICONS.check)} ${L('Tự động lưu khi bấm Enter / ✓ hoặc rời khỏi ô nhập.')}</p>
+          <p class="hint" style="margin:6px 0 0">${L('Cộng dồn ngay trong ô: gõ số hiện có rồi bấm + (hoặc −) và nhập khoản mới, ví dụ 12.500.000+300.000−50.000. Gõ tắt vẫn được: 12tr, 2tr5, 250k.')}</p>` : ''}
       </form>
     </div>
     ${compareCard(y,m,cur)}
@@ -1027,18 +1026,23 @@ function updateMonthLive(){
   $('#mt-inc').textContent=vnd(inc); $('#mt-exp').textContent=vnd(exp); const ms=$('#mt-sur'); ms.textContent=signed(s); ms.className=s<0?'neg':'pos';
   $('#mt-rate').textContent=pctPlain(inc? s/inc : NaN);
   for(const f of MONTH_FIELDS){ const row=$(`[data-mrow="${f}"]`); if(row) row.classList.toggle('dirty', dv[f].dirty); }
-  if($('#mSave')){ $('#mSave').disabled=!dv._dirty; $('#mReset').disabled=!dv._dirty; $('#mUnsaved').hidden=!dv._dirty; }
-  document.body.classList.toggle('m-dirty', !!dv._dirty);   // phones: keep the Save bar in view (see CSS)
 }
-async function saveMonth(){
+// Month figures save themselves: Enter / the keyboard's ✓ / leaving the field. Saves run one at a time.
+let monthSaving=null, monthSaveAgain=false;
+function autoSaveMonth(){
+  if(!S.canWrite || !$('#monthForm')) return;
+  if(monthSaving){ monthSaveAgain=true; return; }
+  monthSaving = saveMonth(true).finally(()=>{ monthSaving=null; if(monthSaveAgain){ monthSaveAgain=false; autoSaveMonth(); } });
+}
+async function saveMonth(auto){
   const y=S.year, m=S.month, key=ymKey(y,m); const dv = monthDraftValues(y,m);
   const ops=[];
   for(const f of MONTH_FIELDS){
     const d = dv[f]; if(!d.dirty) continue;
     const fname = f==='income'? L('Thu nhập') : CAT[f].name;
-    if(isNaN(d.v)){ toast(L('{name}: chưa đọc được số tiền', {name:fname})); $('#mf-'+f)?.focus(); return; }
+    if(isNaN(d.v)){ toast(L('{name}: chưa đọc được số tiền', {name:fname})); if(!auto) $('#mf-'+f)?.focus(); return; }
     const baseAmt = d.v - d.mf.othersSum;
-    if(baseAmt<0){ toast(L('{name}: nhỏ hơn tổng các khoản ghi lẻ ({v} ₫)', {name:fname, v:vnd(d.mf.othersSum)})); $('#mf-'+f)?.focus(); return; }
+    if(baseAmt<0){ toast(L('{name}: nhỏ hơn tổng các khoản ghi lẻ ({v} ₫)', {name:fname, v:vnd(d.mf.othersSum)})); if(!auto) $('#mf-'+f)?.focus(); return; }
     const ref = db.collection('tx').doc(d.mf.baseId);
     if(baseAmt===0){ if(d.mf.base) ops.push(()=>ref.delete()); }
     else ops.push(()=>ref.set({date:lastDayISO(y,m), kind:f==='income'?'income':'expense', cat:f, amount:baseAmt, note:d.mf.base?.note||'',
@@ -1046,11 +1050,10 @@ async function saveMonth(){
   }
   if(dv._note.dirty) ops.push(()=>db.collection('months').doc(key).set({...(S.months[key]||{}), note:String(dv._note.raw).trim(), by:S.meId, at:Date.now()}));
   if(!ops.length) return;
-  const btn=$('#mSave'); if(btn) btn.disabled=true;
-  for(const op of ops){ if(!(await write(op))){ if(btn) btn.disabled=false; return; } }
+  for(const op of ops){ if(!(await write(op))) return; }
   for(const k of Object.keys(S.drafts)) if(k.startsWith(`m:${key}:`)) delete S.drafts[k];
   toast(L('Đã lưu số liệu {month}', {month:monthIn(y,m)}));
-  render();
+  render(); updateMonthLive();
 }
 
 /* =========================================================
@@ -1627,7 +1630,6 @@ function render(){
   hydrateAvatars();
   maskInputs($('#main'));
   paintBell();
-  document.body.classList.toggle('m-dirty', ready && S.view==='spending' && S.canWrite && monthDraftValues(S.year,S.month)._dirty);
 }
 document.addEventListener('focusout', ()=>{ setTimeout(()=>{ if(pendingRender) render(); }, 0); });
 async function hydrateAvatars(){
@@ -1740,7 +1742,6 @@ main.addEventListener('click', async e=>{
     if(ok && sp.wd){ const body={...(S.months[sp.key]||{})}; delete body.withdrawn; ok = await write(()=>db.collection('months').doc(sp.key).set(body)); }
     if(ok) toast(L('Đã khôi phục thặng dư {v} ₫', {v:vnd(sp.mv+sp.w)})); else t.disabled=false; return; }
   if(d.withdrawSurplus){ openWithdraw(+d.withdrawSurplus); return; }
-  if(t.id==='mReset'){ const key=ymKey(S.year,S.month); for(const k of Object.keys(S.drafts)) if(k.startsWith(`m:${key}:`)) delete S.drafts[k]; render(); return; }
   if(d.export){ exportData(d.export); return; }
   if(t.id==='logoutBtn2'){ FIN.logout(); return; }
   if(d.memberReset){ openResetPassword(d.memberReset, d.name); return; }
@@ -1759,7 +1760,7 @@ main.addEventListener('input', e=>{
 });
 main.addEventListener('submit', async e=>{
   const f = e.target; e.preventDefault();
-  if(f.id==='monthForm'){ saveMonth(); return; }
+  if(f.id==='monthForm'){ autoSaveMonth(); return; }
   if(f.dataset.fundForm){
     const fund = f.dataset.fundForm, k='ff:'+fund+':';
     const type = (f.querySelector('input[type=radio]:checked')||{}).value || 'in';
@@ -1971,7 +1972,15 @@ const collapseIfSum = e=>{ const el = e.target; if(el.matches && el.matches('[da
 document.addEventListener('focusout', collapseIfSum, true);
 document.addEventListener('change', collapseIfSum, true);
 // Enter / Go on a running total: show the result instead of submitting half-typed sums
-document.addEventListener('keydown', e=>{ const el=e.target; if(e.key==='Enter' && el.matches && el.matches('[data-sum],[data-mfield]') && hasOps(el.value)){ e.preventDefault(); collapseSum(el); } });
+// One Enter / Go is enough: a running total collapses to its result, then
+//  - month figures: the field is left, which saves it (see below);
+//  - other forms (Ghi chép, quỹ…): the form submits as usual with the collapsed amount.
+document.addEventListener('keydown', e=>{ const el=e.target; if(e.key!=='Enter' || e.isComposing || !el.matches) return;
+  if(el.matches('[data-mfield]')){ e.preventDefault(); collapseSum(el); el.blur(); return; }
+  if(el.matches('[data-sum]')) collapseSum(el); });
+// Leaving a month field (Tab, tap elsewhere, iOS/Android ✓ Done) saves it right away — no Save button.
+document.addEventListener('focusout', e=>{ const el=e.target;
+  if(el.matches && (el.matches('#monthForm [data-mfield]') || el.id==='mf-note') && !el.readOnly) setTimeout(autoSaveMonth, 0); });
 /** Exact amount field in a sheet: formats while typing and reads the amount out in words. */
 function bindExactAmount(input, prev, onChange){
   const upd = ()=>{ const n = formatExact(input); if(prev){ prev.innerHTML = exactPreview(n, input.value); prev.classList.remove('bad'); } if(onChange) onChange(n); };

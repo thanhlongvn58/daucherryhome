@@ -295,6 +295,7 @@ window.STC_I18N_DICT = {
 "Có thay đổi chưa lưu": ["Unsaved changes", "未保存の変更があります"],
 "Hoàn tác": ["Undo", "元に戻す"],
 "Lưu số liệu tháng": ["Save month", "月のデータを保存"],
+"Tự động lưu khi bấm Enter / ✓ hoặc rời khỏi ô nhập.": ["Saved automatically when you press Enter / ✓ or leave the field.", "Enter / ✓ を押すか入力欄を離れると自動保存されます。"],
 "Cộng dồn ngay trong ô: gõ số hiện có rồi bấm + (hoặc −) và nhập khoản mới, ví dụ 12.500.000+300.000−50.000. Gõ tắt vẫn được: 12tr, 2tr5, 250k.": ["Add up right in the field: after the current figure tap + (or −) and type the new amount, e.g. 12,500,000+300,000−50,000. Shorthand still works: 12m, 2.5m, 250k.","欄内で合算できます：現在の金額のあとに +（または −）を押して新しい金額を入力。例：12,500,000+300,000−50,000。略記も使えます：1200万、250万、25万。"],
 "Diễn biến chi tiêu theo danh mục · {y}": ["Expenses by category · {y}", "カテゴリ別支出の推移 · {y}年"],
 "Chạm vào biểu đồ để xem số liệu từng tháng; bấm chú thích để ẩn/hiện": ["Tap the chart to see each month's figures; tap the legend to show/hide", "グラフをタップで月ごとの数値を表示、凡例をタップで表示切替"],
