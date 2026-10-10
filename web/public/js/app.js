@@ -1255,7 +1255,11 @@ function paintGreeting(){
   if(!me){ el.textContent=''; return; }
   const h=new Date().getHours();
   const key = h>=5 && h<12 ? 'Chào buổi sáng, {name}' : h>=12 && h<18 ? 'Chào buổi chiều, {name}' : 'Chào buổi tối, {name}';
-  const txt=L(key, {name:me.name}); if(el.textContent!==txt) el.textContent=txt;
+  // the salutation and the name are styled apart (italic serif + upright name), so build both parts as text nodes
+  const sig = I.get()+'|'+key+'|'+me.name; if(el.dataset.sig===sig) return; el.dataset.sig = sig;
+  const [pre, post=''] = L(key, {name:'\u2063'}).split('\u2063');
+  const nm = document.createElement('span'); nm.className='g-name'; nm.textContent = me.name;
+  el.replaceChildren(document.createTextNode(pre), nm, document.createTextNode(post));
 }
 function setLang(v){ if(!I.LANGS[v] || v===I.get()) return; I.set(v); }
 function paintLangSel(){ const s=$('#langSel'); if(s) s.value = I.get(); const c=$('#langCode'); if(c) c.textContent = I.LANGS[I.get()].short; }

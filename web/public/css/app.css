@@ -607,5 +607,7 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 .sum-tbl td:first-child{box-shadow:1px 0 0 var(--line-2)}
 
 /* ---------- greeting ---------- */
-.greeting{margin:0 0 6px;font-size:14px;font-weight:600;color:var(--accent);letter-spacing:.005em;min-height:1.2em}
+.greeting{margin:0 0 4px;font-family:"Playfair Display","Be Vietnam Pro",Georgia,serif;font-style:italic;font-weight:400;font-size:clamp(17px,1.7vw,21px);line-height:1.3;letter-spacing:.01em;color:var(--ink-2)}
+.greeting .g-name{font-style:normal;font-weight:600;color:var(--accent);letter-spacing:.005em}
+:root:lang(ja) .greeting{font-family:"Playfair Display","Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;font-style:normal}
 .greeting:empty{display:none}
