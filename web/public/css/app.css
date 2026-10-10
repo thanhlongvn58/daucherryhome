@@ -617,7 +617,7 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 .pw-toggle{display:grid;place-items:center;width:42px;height:38px;padding:0;color:var(--muted)}
 .pw-toggle:hover,.pw-toggle[aria-pressed="true"]{color:var(--accent)}
 .pw-toggle .ico{width:20px;height:20px}
-/* ---------- privacy mode: amounts show as **** until the eye is tapped again ---------- */
+/* ---------- privacy mode: amounts show as ********* until the eye is tapped again ---------- */
 .hero-label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .eye-btn{display:inline-grid;place-items:center;width:30px;height:30px;margin:-6px 0;border:0;border-radius:8px;background:rgba(255,255,255,.08);color:var(--hero-gold);cursor:pointer}
 .eye-btn:hover{background:rgba(255,255,255,.16)}

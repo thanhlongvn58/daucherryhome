@@ -159,8 +159,8 @@ let db=null, user=null;
 const $ = (s,el=document)=>el.querySelector(s);
 const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-/* Money on screen; in privacy mode it shows as **** (see setPrivacy). Input fields use vndRaw. */
-const MASK = '****';
+/* Money on screen; in privacy mode it shows as ********* (see setPrivacy). Input fields use vndRaw. */
+const MASK = '*********';
 const vndRaw = n => I.int(n);
 const vnd = n => isPrivate()? MASK : I.int(n);
 const compact = n => isPrivate()? MASK : I.compact(n);
