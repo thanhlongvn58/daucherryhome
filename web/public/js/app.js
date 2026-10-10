@@ -200,10 +200,17 @@ const ico = (paths,cls='ico') => `<svg class="${cls}" viewBox="0 0 24 24" aria-h
 const normCat = c => CAT[c]? c : 'other';
 const isClosed = d => d.status==='closed';
 
-/* Shorthand in every language: 250k, 1tr2, 2.5tr, 1ty5, 2.5m, 1.2b/bn, 25万, 1億2000万, 150k+80k+1tr */
+/* Shorthand in every language: 250k, 1tr2, 2.5tr, 1ty5, 2.5m, 1.2b/bn, 25万, 1億2000万, and running totals:
+   150k+80k+1tr, 12.500.000+300.000−50.000 (a trailing + or − while typing is ignored). */
 function parseAmount(str){
-  let s = String(str??'').toLowerCase().replace(/\s+/g,'').replace(/₫|vnđ|vnd|đ|ドン/g,'');
+  let s = String(str??'').toLowerCase().replace(/\s+/g,'').replace(/₫|vnđ|vnd|đ|ドン/g,'').replace(/[−–]/g,'-').replace(/[+\-]+$/,'');
   if(!s) return NaN;
+  if(/[+\-]/.test(s.slice(1))){   // several terms: add or subtract each one
+    const terms = s.match(/[+\-]?[^+\-]+/g) || []; let t = 0;
+    for(const term of terms){ const v = parseAmount(term.replace(/^[+\-]/,'')); if(isNaN(v)) return NaN; t += term[0]==='-'? -v : v; }
+    return t<0? NaN : Math.round(t);
+  }
+  s = s.replace(/^\+/,'');
   const units = {'tỷ':1e9,ty:1e9,bn:1e9,b:1e9,'triệu':1e6,trieu:1e6,tr:1e6,m:1e6,'nghìn':1e3,nghin:1e3,k:1e3,n:1e3,'億':1e8,'万':1e4,'千':1e3};
   const tok = /(\d+(?:[.,]\d+)?)(tỷ|ty|bn|b|triệu|trieu|tr|m|nghìn|nghin|k|n|億|万|千)/y;
   let total = 0;
@@ -328,7 +335,7 @@ function fundYearFlows(f){
    products: one document per fund / instrument, each with its own current price.
    lots (collection "vcbf"): every buy/sell, tagged with its product id. Totals = sum over products. */
 const LEGACY_PRODUCT = 'vcbf-mgf';
-const PRODUCT_TYPES = i18nize({equity:'Quỹ cổ phiếu', bond:'Quỹ trái phiếu', balanced:'Quỹ cân bằng', stock:'Cổ phiếu', gold:'Vàng', other:'Khác'});
+const PRODUCT_TYPES = i18nize({equity:'Quỹ cổ phiếu', bond:'Quỹ trái phiếu', balanced:'Quỹ cân bằng', mmf:'Quỹ thị trường tiền tệ', stock:'Cổ phiếu', gold:'Vàng', other:'Khác'});
 const PRODUCT_MODES = i18nize({sip:'Định kỳ (SIP)', lump:'Mua một lần'});
 const MANAGERS = ['VCBF','Dragon Capital (DCVFM)','SSIAM','VinaCapital','Techcom Capital (TCAM)','MB Capital','Mirae Asset','Manulife IM','VinaWealth','Bảo Việt Fund','Công ty chứng khoán','Khác'];
 const PRODUCT_COLORS = ['var(--c-kids)','var(--c-mgmt)','var(--c-util)','var(--c-transport)','var(--c-helper)','var(--c-other)','var(--c-food)'];
@@ -701,8 +708,8 @@ const delBtn = (col,id) => S.canWrite? `<button class="btn xs danger" type="butt
 function kpi(label, value, foot='', cls=''){ return `<div class="card kpi ${cls}"><div class="label">${label}</div><div class="value">${value}</div>${foot?`<div class="foot">${foot}</div>`:''}</div>`; }
 /** Inline exact-amount field (digits only, separators added while typing; see formatExact). */
 function exactField(id, draftKey, label){
-  const v = draft(draftKey,''), n = +String(v).replace(/\D/g,'') || 0;
-  return `<div class="field"><label for="${id}">${label}</label><div class="amt-box sm"><input id="${id}" data-draft="${draftKey}" data-exact data-exact-prev="${id}-p" inputmode="numeric" autocomplete="off" value="${esc(v)}" placeholder="${I.int(20000000)}"><span>₫</span></div><div class="amt-prev" id="${id}-p">${exactPreview(n)}</div></div>`;
+  const v = draft(draftKey,''), n = sumOf(v) || 0;
+  return `<div class="field"><label for="${id}">${label}</label><div class="amt-box sm"><input id="${id}" data-draft="${draftKey}" data-exact data-sum data-exact-prev="${id}-p" inputmode="numeric" autocomplete="off" value="${esc(v)}" placeholder="${I.int(20000000)}">${sumOps(id)}<span>₫</span></div><div class="amt-prev" id="${id}-p">${exactPreview(n)}</div></div>`;
 }
 
 /** Inline entry form for a fund ledger (savings / emergency). */
@@ -857,11 +864,11 @@ function viewSpending(){
     <div class="card"><div class="card-h"><h2>${L('Số liệu {month}', {month:monthIn(y,m)})}</h2></div>
       <form class="mform" id="monthForm" novalidate>
         <div class="mrow income ${dv.income.dirty?'dirty':''}" data-mrow="income"><label class="n" for="mf-income"><i class="swatch" style="background:var(--accent)"></i><span>${L('Thu nhập tháng')}</span></label>
-          <input class="input" id="mf-income" data-draft="m:${ymKey(y,m)}:income" data-mfield="income" inputmode="text" autocomplete="off" value="${esc(dv.income.raw)}" placeholder="0" ${ro}>
+          <div class="m-in"><input class="input" id="mf-income" data-draft="m:${ymKey(y,m)}:income" data-mfield="income" inputmode="decimal" autocomplete="off" value="${esc(dv.income.raw)}" placeholder="0" ${ro}>${ro?'':sumOps('mf-income')}</div><span class="sum-prev" id="mf-income-sum" hidden></span>
           ${dv.income.mf.others.length? `<span class="hint">${L('Gồm {n} khoản ghi lẻ: {v} ₫', {n:dv.income.mf.others.length, v:vnd(dv.income.mf.othersSum)})}</span>`:''}</div>
         <div class="mgroup">${L('Chi phí')}</div>
         ${CATS.map(c=>{ const f=dv[c.id]; return `<div class="mrow ${f.dirty?'dirty':''}" data-mrow="${c.id}"><label class="n" for="mf-${c.id}"><i class="swatch" style="background:var(--c-${c.id})"></i><span>${c.name}</span></label>
-          <input class="input" id="mf-${c.id}" data-draft="m:${ymKey(y,m)}:${c.id}" data-mfield="${c.id}" inputmode="text" autocomplete="off" value="${esc(f.raw)}" placeholder="0" ${ro}>
+          <div class="m-in"><input class="input" id="mf-${c.id}" data-draft="m:${ymKey(y,m)}:${c.id}" data-mfield="${c.id}" inputmode="decimal" autocomplete="off" value="${esc(f.raw)}" placeholder="0" ${ro}>${ro?'':sumOps('mf-'+c.id)}</div><span class="sum-prev" id="mf-${c.id}-sum" hidden></span>
           ${f.mf.others.length? `<span class="hint">${L('Gồm {n} khoản ghi lẻ: {v} ₫', {n:f.mf.others.length, v:vnd(f.mf.othersSum)})}</span>`:''}</div>`; }).join('')}
         <div class="field" style="margin-top:14px"><label for="mf-note">${L('Mô tả tháng')}</label>
           <textarea class="input" id="mf-note" data-draft="m:${ymKey(y,m)}:note" placeholder="${L('vd: 5tr đưa bà ngoại, 2tr đám cưới, 1tr mua quạt…')}" ${ro}>${esc(dv._note.raw)}</textarea></div>
@@ -873,7 +880,7 @@ function viewSpending(){
         </div>
         ${S.canWrite? `<div class="mfoot"><span class="unsaved" id="mUnsaved" ${dv._dirty?'':'hidden'}>${L('Có thay đổi chưa lưu')}</span><span></span>
           <div class="top-actions"><button class="btn" type="button" id="mReset" ${dv._dirty?'':'disabled'}>${L('Hoàn tác')}</button><button class="btn primary" type="submit" id="mSave" ${dv._dirty?'':'disabled'}>${L('Lưu số liệu tháng')}</button></div></div>
-          <p class="hint" style="margin:8px 0 0">${L('Gõ tắt được: 12tr, 2tr5, 250k, hoặc cộng nhiều khoản 250k+300k+1tr.')}</p>` : ''}
+          <p class="hint" style="margin:8px 0 0">${L('Cộng dồn ngay trong ô: gõ số hiện có rồi bấm + (hoặc −) và nhập khoản mới, ví dụ 12.500.000+300.000−50.000. Gõ tắt vẫn được: 12tr, 2tr5, 250k.')}</p>` : ''}
       </form>
     </div>
     ${compareCard(y,m,cur)}
@@ -1086,7 +1093,7 @@ function viewDeposits(){
   <div class="grid g-split section-gap">
     <div class="card"><div class="card-h"><h2>${L('Lịch đáo hạn')}</h2><span class="sub">${L('{n} sổ đang gửi', {n:sched.length})}</span></div>
       <div class="list">${sched.length? sched.map(({d,k})=>`<div class="mat"><div class="date"><b>${k.mat.slice(8,10)}</b><span>${k.mat.slice(5,7)}/${k.mat.slice(0,4)}</span></div>
-        <div style="min-width:0"><div class="t">${bankBadge(d.bank,'sm')} <span>${esc(d.label||L('Kỳ hạn {n} tháng', {n:d.term}))}</span></div><div class="s">${L('{term} · {rate}%/năm · lãi đáo hạn +{v} ₫', {term:termTxt(d.term), rate:I.num(d.rate,2), v:vnd(k.atMat)})}</div></div>
+        <div style="min-width:0"><div class="t">${bankBadge(d.bank,'sm')} <span>${esc(depLabel(d))}</span></div><div class="s">${L('{term} · {rate}%/năm · lãi đáo hạn +{v} ₫', {term:termTxt(d.term), rate:I.num(d.rate,2), v:vnd(k.atMat)})}</div></div>
         <div class="amt">${compact(d.amount)}<div>${statusChip(k)}</div></div></div>`).join('') : `<div class="empty"><b>${L('Không có sổ sắp đáo hạn')}</b></div>`}</div>
     </div>
     <div class="card"><div class="card-h"><h2>${L('Nhập giao dịch quỹ tiết kiệm')}</h2><span class="sub">${L('Nạp vào, rút ra, nhận lãi')}</span></div>
@@ -1459,7 +1466,7 @@ function viewLocation(){
 }
 function setLang(v){ if(!I.LANGS[v] || v===I.get()) return; I.set(v); }
 function paintLangSel(){ const s=$('#langSel'); if(s) s.value = I.get(); const c=$('#langCode'); if(c) c.textContent = I.LANGS[I.get()].short; }
-const ROLE_LABEL = i18nize({owner:'Chủ sổ', member:'Thành viên', viewer:'Chỉ xem'});
+const ROLE_LABEL = i18nize({owner:'Admin', member:'Thành viên', viewer:'Chỉ xem'});
 const ROLE_HINT = i18nize({owner:'Toàn quyền, quản lý thành viên và khôi phục dữ liệu', member:'Ghi chép và sửa dữ liệu', viewer:'Chỉ xem, không sửa được'});
 let restoreData=null;
 function viewMembers(){
@@ -1487,7 +1494,7 @@ function viewMembers(){
         </div>
         <p class="hint" id="am-hint" style="margin:0">${memberHint('member')}</p>
         <div><button class="btn primary" type="submit">${L('Thêm thành viên')}</button></div>
-      </form>` : `<p class="hint">${L('Chỉ chủ sổ mới thêm hoặc xóa được thành viên.')}</p>`}
+      </form>` : `<p class="hint">${L('Chỉ Admin mới thêm hoặc xóa được thành viên.')}</p>`}
     </div>
     <div class="stack">
       <div class="card"><div class="card-h"><h2>${L('Đổi mật khẩu của bạn')}</h2></div>
@@ -1554,7 +1561,7 @@ function render(){
   const ready = Object.values(S.loaded).every(Boolean);
   if(S.conn==='off' && !ready) html = viewOffline();
   else if(!ready) html = viewLoading();
-  else html = yearBanner() + (S.canWrite?'':`<div class="banner">${L('Tài khoản của bạn chỉ có quyền xem. Nhờ chủ sổ đổi vai trò thành “Thành viên” để ghi chép.')}</div>`) +
+  else html = yearBanner() + (S.canWrite?'':`<div class="banner">${L('Tài khoản của bạn chỉ có quyền xem. Nhờ Admin đổi vai trò thành “Thành viên” để ghi chép.')}</div>`) +
     ({overview:viewOverview, spending:viewSpending, invest:viewInvest, deposits:viewDeposits, emergency:viewEmergency, kids:viewKids, settings:viewSettings}[S.view] || viewOverview)();
   $('#main').innerHTML = html;
   hydrateAvatars();
@@ -1683,8 +1690,8 @@ main.addEventListener('click', async e=>{
 const stripId = o => { const {id, ...rest} = o; return rest; };
 main.addEventListener('input', e=>{
   const el = e.target; const k = el.dataset.draft;
-  if('exact' in el.dataset){ const n = formatExact(el); const p = el.dataset.exactPrev && $('#'+el.dataset.exactPrev); if(p) p.innerHTML = exactPreview(n); }
-  if(el.dataset.mfield) liveGroup(el);
+  if('exact' in el.dataset){ const n = formatExact(el); const p = el.dataset.exactPrev && $('#'+el.dataset.exactPrev); if(p) p.innerHTML = exactPreview(n, el.value); }
+  if(el.dataset.mfield){ liveGroup(el); const p = $('#'+el.id+'-sum'); if(p){ const v = parseAmount(el.value); p.hidden = !hasOps(el.value); p.textContent = isNaN(v)? L('Chưa đọc được số tiền') : '= '+vndRaw(v)+' ₫'; p.classList.toggle('neg', isNaN(v)); } }
   if(k){ S.drafts[k] = el.value; }
   if(el.dataset.mfield || el.id==='mf-note') updateMonthLive();
 });
@@ -1727,7 +1734,7 @@ main.addEventListener('change', async e=>{
   if(el.id==='am-role'){ $('#am-hint').textContent = memberHint(el.value); return; }
   if(el.id==='restoreFile'){ restoreData=null; $('#restoreBtn').disabled=true; const file = el.files && el.files[0]; if(!file) return;
     try{ const obj = JSON.parse(await file.text()); if(!obj || !Array.isArray(obj.tx)) throw new Error('bad'); restoreData=obj; $('#restoreBtn').disabled=false; toast(L('Tệp hợp lệ: {a} thu chi, {b} biến động quỹ', {a:obj.tx.length, b:(obj.fund||[]).length})); }
-    catch(err){ toast(L('Tệp này không phải bản sao lưu của Sổ Tài Chính.')); } return; }
+    catch(err){ toast(L('Tệp này không phải bản sao lưu của Quản lý Tài chính.')); } return; }
   if(!S.canWrite) return;
   const bad = () => toast(L('Số tiền chưa đọc được. Ví dụ: 12tr'));
   if(d.budget){ const v = el.value.trim()? parseAmount(el.value) : 0; if(isNaN(v)){ bad(); return; }
@@ -1810,7 +1817,7 @@ function openTx({kind='expense', doc=null}={}){
     <div class="panel-h"><h2>${isEdit?L('Sửa ghi chép'):L('Ghi chép nhanh')}</h2>${closeBtn()}</div>
     <div class="seg" id="kindSeg" role="group" aria-label="${L('Loại')}"></div>
     <div class="field"><label for="f-amt">${L('Số tiền')}</label>
-      <div class="amt-box"><input id="f-amt" autocomplete="off" inputmode="numeric" placeholder="0" value="${doc? vndRaw(doc.amount):''}"><span>₫</span></div>
+      <div class="amt-box"><input id="f-amt" data-sum autocomplete="off" inputmode="numeric" placeholder="0" value="${doc? vndRaw(doc.amount):''}">${sumOps('f-amt')}<span>₫</span></div>
       <div class="amt-prev" id="f-prev"></div>
       <div class="pills" id="quick">${quick.map(q=>`<button type="button" class="pill" data-q="${q}">+${compact(q)}</button>`).join('')}</div>
     </div>
@@ -1826,9 +1833,10 @@ function openTx({kind='expense', doc=null}={}){
   const amt=$('#f-amt'); bindExactAmount(amt, $('#f-prev'));
   $('#kindSeg').addEventListener('click', e=>{ const b=e.target.closest('button[data-k]'); if(!b||b.disabled) return; st.kind=b.dataset.k; if(st.kind==='expense' && !CAT[st.cat]) st.cat='food'; if(st.kind==='income' && !INC[st.cat]) st.cat='income'; draw(); });
   $('#catPills').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; if(b.dataset.c) st.cat=b.dataset.c; if(b.dataset.t) st.type=b.dataset.t; draw(); });
-  $('#quick').addEventListener('click', e=>{ const b=e.target.closest('button[data-q]'); if(!b) return; amt.value = I.int((readExactAmount(amt)||0) + +b.dataset.q); amt.dispatchEvent(new Event('input')); amt.focus(); });
+  $('#quick').addEventListener('click', e=>{ const b=e.target.closest('button[data-q]'); if(!b) return; const cur=amt.value.replace(/[+−\-]+$/,''); amt.value = cur? cur+'+'+I.int(+b.dataset.q) : I.int(+b.dataset.q); amt.dispatchEvent(new Event('input')); amt.focus(); });
   $('#txForm').addEventListener('submit', async e=>{
     e.preventDefault();
+    collapseSum(amt);
     const a = readExactAmount(amt); if(!(a>0)){ toast(L('Nhập số tiền lớn hơn 0')); amt.focus(); return; }
     const date = readDate('f-date'); if(!date) return; const note=$('#f-note').value.trim();
     const isFund = st.kind==='emergency'||st.kind==='savings';
@@ -1837,7 +1845,7 @@ function openTx({kind='expense', doc=null}={}){
     if(isFund){
       const body = {date, fund:st.kind, type:st.type, amount:a, note, by: doc?.by ?? S.meId, at: doc?.at || Date.now()}; if(doc?.ref) body.ref=doc.ref;
       ok = await write(()=> doc? db.collection('fund').doc(doc.id).set(body) : db.collection('fund').add(body));
-      if(ok) toast(`${isEdit?L('Đã sửa'):L('Đã lưu')}: ${FUNDS[st.kind].name} ${st.type==='out'?'−':'+'}${vnd(a)} ₫`);
+      if(ok) toast(`${isEdit?L('Đã sửa'):L('Đã lưu')}: ${FUNDS[st.kind].name} · ${fundTypeLabel(st.kind, st.type)} ${st.type==='out'?'−':'+'}${vnd(a)} ₫`);
     } else {
       const body = {date, kind:st.kind, cat:st.cat, amount:a, note, by: doc?.by ?? S.meId, at: doc?.at || Date.now()}; if(doc?.src) body.src=doc.src; if(doc?.expr) body.expr='';
       ok = await write(()=> doc? db.collection('tx').doc(doc.id).set(body) : db.collection('tx').add(body));
@@ -1852,30 +1860,68 @@ function openTx({kind='expense', doc=null}={}){
 const readVND = n => I.words(n);
 /** Put the caret back after the same number of significant characters once a value has been reformatted. */
 function keepCaret(input, out, before, sig){ let p=0, c=0; while(p<out.length && c<before){ if(sig.test(out[p])) c++; p++; } try{ input.setSelectionRange(p,p); }catch(e){} }
-/** Exact amount: digits only, thousand separators shown while typing (2.500.000). Returns the number. */
-function formatExact(input){
-  const raw = input.value, pos = input.selectionStart ?? raw.length;
-  const digits = raw.replace(/\D/g,'').replace(/^0+(?=\d)/,'').slice(0,15);
-  const out = digits? I.int(+digits) : '';
-  if(out!==raw){ const before = raw.slice(0,pos).replace(/\D/g,'').length; input.value = out; keepCaret(input, out, before, /\d/); }
-  return digits? +digits : NaN;
+/** Value of an exact amount, which may be a running total of whole numbers: "12.500.000+300.000−50.000". */
+function sumOf(str){
+  const s = String(str||'').replace(/[−–]/g,'-').replace(/[^\d+\-]/g,'').replace(/^[+\-]+/,'').replace(/[+\-]+$/,'');
+  if(!/\d/.test(s)) return NaN;
+  let t = 0; for(const term of s.match(/[+\-]?\d+/g)||[]) t += +term;
+  return t;
 }
-const exactPreview = n => n>0 ? `= ${vndRaw(n)} ₫ · <span class="words">${esc(readVND(n))}</span>` : L('Nhập đầy đủ số tiền đến hàng đơn vị, ví dụ {ex}', {ex:I.int(2500000000)});
+/** Exact amount: digits only, thousand separators shown while typing (2.500.000). Fields marked data-sum also
+    take + and − to add up several amounts; each number is grouped as it is typed. Returns the value. */
+function formatExact(input){
+  const raw = input.value, pos = input.selectionStart ?? raw.length, ops = 'sum' in input.dataset;
+  let out;
+  if(ops){
+    const clean = raw.replace(/[−–]/g,'-').replace(/[^\d+\-]/g,'').replace(/^[+\-]+/,'').replace(/([+\-])[+\-]+/g,'$1');
+    out = clean.split(/([+\-])/).map(p=> p==='+'? '+' : p==='-'? '−' : p? I.int(+p.replace(/^0+(?=\d)/,'').slice(0,15)) : '').join('');
+  } else {
+    const digits = raw.replace(/\D/g,'').replace(/^0+(?=\d)/,'').slice(0,15);
+    out = digits? I.int(+digits) : '';
+  }
+  if(out!==raw){ const sig = /[\d+−\-]/; const before = [...raw.slice(0,pos)].filter(c=>sig.test(c)).length; input.value = out; keepCaret(input, out, before, /[\d+−]/); }
+  return ops? sumOf(out) : (out? +out.replace(/\D/g,'') : NaN);
+}
+const hasOps = v => /[+−\-]/.test(String(v||'').replace(/^[+\-−]/,''));
+const exactPreview = (n, expr) => n>0 ? `= ${vndRaw(n)} ₫${hasOps(expr)? ` <span class="muted">(${esc(expr)})</span>` : ''} · <span class="words">${esc(readVND(n))}</span>`
+  : hasOps(expr)? `<span class="neg">${L('Tổng phải lớn hơn 0')}</span>` : L('Nhập đầy đủ số tiền đến hàng đơn vị, ví dụ {ex}', {ex:I.int(2500000000)});
+/** + and − keys for amount fields (phone number pads have neither). */
+const sumOps = id => `<span class="sum-ops" aria-hidden="false"><button type="button" tabindex="-1" data-op="+" data-for="${id}" aria-label="${L('Cộng thêm')}">+</button><button type="button" tabindex="-1" data-op="−" data-for="${id}" aria-label="${L('Trừ bớt')}">−</button></span>`;
+/** Once the field is left, a running total collapses into the final, formatted amount. */
+function collapseSum(el){
+  if(!el || !hasOps(el.value)) return;
+  const v = 'mfield' in el.dataset ? parseAmount(el.value) : sumOf(el.value);
+  if(isNaN(v) || v<=0) return;
+  el.value = vndRaw(v); el.dispatchEvent(new Event('input', {bubbles:true}));
+}
+document.addEventListener('pointerdown', e=>{
+  const b = e.target.closest && e.target.closest('[data-op]'); if(!b) return;
+  e.preventDefault();                               // keep the keyboard open on the field
+  const el = document.getElementById(b.dataset.for); if(!el || el.readOnly) return;
+  if(document.activeElement!==el) el.focus();
+  const v = el.value.replace(/[+−\-]+$/,''); if(!v) return;
+  el.value = v + b.dataset.op; el.setSelectionRange(el.value.length, el.value.length);
+  el.dispatchEvent(new Event('input', {bubbles:true}));
+});
+document.addEventListener('change', e=>{ const el = e.target; if(el.matches && el.matches('[data-sum],[data-mfield]')) collapseSum(el); }, true);
 /** Exact amount field in a sheet: formats while typing and reads the amount out in words. */
 function bindExactAmount(input, prev, onChange){
-  const upd = ()=>{ const n = formatExact(input); if(prev){ prev.innerHTML = exactPreview(n); prev.classList.remove('bad'); } if(onChange) onChange(n); };
+  const upd = ()=>{ const n = formatExact(input); if(prev){ prev.innerHTML = exactPreview(n, input.value); prev.classList.remove('bad'); } if(onChange) onChange(n); };
   input.addEventListener('input', upd); upd();
 }
-/** Monthly figures keep their shorthand (12tr, 250k+300k); plain numbers get separators while typing. */
+/** Monthly figures keep their shorthand (12tr, 250k) and running totals (12.500.000+300.000−50k);
+    plain numbers get separators while typing. */
 function liveGroup(input){
   const raw = input.value, pos = input.selectionStart ?? raw.length; let changed = false;
-  const out = raw.split('+').map(p=>{ const t=p.trim(); if(!/^[\d.,]+$/.test(t)) return p;
+  const out = raw.replace(/-/g,'−').split(/([+−])/).map(p=>{ if(p==='+'||p==='−') return p; const t=p.trim(); if(!/^[\d.,]+$/.test(t)) return p;
     const d = t.replace(/[.,]/g,'').replace(/^0+(?=\d)/,'').slice(0,15); if(!d) return p;
-    const g = I.int(+d); if(g!==p) changed = true; return g; }).join('+');
-  if(!changed) return;
-  const before = raw.slice(0,pos).replace(/[^\d+]/g,'').length; input.value = out; keepCaret(input, out, before, /[\d+]/);
+    const g = I.int(+d); if(g!==p) changed = true; return g; }).join('');
+  if(!changed && out===raw) return;
+  const before = raw.slice(0,pos).replace(/[^\d+\-−]/g,'').length; input.value = out; keepCaret(input, out, before, /[\d+−]/);
 }
-const readExactAmount = el => { const d = String(el.dataset.masked? el.dataset.real : el.value).replace(/\D/g,''); return d? +d : NaN; };
+const readExactAmount = el => { const v = String(el.dataset.masked? el.dataset.real : el.value); return 'sum' in el.dataset ? sumOf(v) : (v.replace(/\D/g,'')? +v.replace(/\D/g,'') : NaN); };
+/** A deposit's name; one that only says "Kỳ hạn 6 tháng" is shown in the current language. */
+const depLabel = d => { const m = /^\s*Kỳ hạn\s+(\d+)\s+tháng\s*$/i.exec(d.label||''); return !d.label || m ? L('Kỳ hạn {n} tháng', {n: m? +m[1] : d.term}) : d.label; };
 const depMaturity = d => d.maturity || addMonths(d.start, +d.term||1);
 
 function openDeposit(doc=null){
@@ -1976,7 +2022,8 @@ function openLot(doc=null, productId=null){
   const price0 = doc?.price || prod.price || '';
   openSheet(`<form id="lotForm" novalidate style="display:flex;flex-direction:column;gap:14px">
     <div class="panel-h"><h2>${doc?L('Sửa giao dịch'):L('Thêm giao dịch đầu tư')}</h2>${closeBtn()}</div>
-    <div class="field"><label for="l-prod">${L('Sản phẩm')}</label><select class="input" id="l-prod">${plist.map(p=>`<option value="${esc(p.id)}" ${p.id===prod.id?'selected':''}>${esc(productLabel(p))}${p.manager?' · '+esc(L(p.manager)):''}</option>`).join('')}</select>
+    <div class="field"><label for="l-prod">${L('Sản phẩm')}</label><select class="input" id="l-prod">${plist.map(p=>`<option value="${esc(p.id)}" ${p.id===prod.id?'selected':''}>${esc(productLabel(p))}${p.name?' – '+esc(p.name):''}</option>`).join('')}</select>
+      <span class="hint" id="l-prodinfo"></span>
       <span class="hint">${L('Chưa có quỹ cần nhập?')} <button type="button" class="btn xs ghost" id="l-newprod">${L('Thêm sản phẩm mới')}</button></span></div>
     <div class="typeseg" role="radiogroup" aria-label="${L('Loại giao dịch')}">
       <label><input type="radio" name="l-side" value="buy" ${side0==='buy'?'checked':''}><span>${L('Mua')}</span></label>
@@ -1986,7 +2033,7 @@ function openLot(doc=null, productId=null){
       <div class="field"><label for="l-date">${L('Ngày giao dịch')}</label>${dateInput('l-date', doc?.date||defaultDateISO())}</div>
       <div class="field"><label for="l-price">${L('Giá / đơn vị')}</label><input class="input num" id="l-price" inputmode="decimal" value="${price0? I.decIn(price0):''}" placeholder="${L('vd: 13732,75')}"></div>
     </div>
-    <div class="field"><label for="l-amt">${L('Số tiền giao dịch')}</label><div class="amt-box"><input id="l-amt" autocomplete="off" inputmode="numeric" value="${doc? vndRaw((+doc.units)*(+doc.price)) : ''}" placeholder="${I.int(10000000)}"><span>₫</span></div><div class="amt-prev" id="l-prev"></div></div>
+    <div class="field"><label for="l-amt">${L('Số tiền giao dịch')}</label><div class="amt-box"><input id="l-amt" data-sum autocomplete="off" inputmode="numeric" value="${doc? vndRaw((+doc.units)*(+doc.price)) : ''}" placeholder="${I.int(10000000)}">${sumOps('l-amt')}<span>₫</span></div><div class="amt-prev" id="l-prev"></div></div>
     <div class="row2">
       <div class="field"><label for="l-units">${L('Số lượng')}</label><input class="input num" id="l-units" inputmode="decimal" value="${doc? I.decIn(doc.units):''}"><span class="hint">${L('Tự tính = số tiền ÷ giá. Sửa theo sao kê nếu khác.')}</span></div>
       <div class="field"><label for="l-fee">${L('Phí giao dịch (nếu có)')}</label><input class="input num" id="l-fee" inputmode="numeric" autocomplete="off" value="${doc?.fee? vndRaw(doc.fee):''}" placeholder="0"></div>
@@ -1998,8 +2045,12 @@ function openLot(doc=null, productId=null){
   const calc=()=>{ const a=readExactAmount($('#l-amt')), p=parseDecimal($('#l-price').value); if(a>0&&p>0) $('#l-units').value=I.decIn(Math.floor(a/p*100)/100); };
   bindExactAmount($('#l-amt'), $('#l-prev'), calc); bindExactAmount($('#l-fee'));
   $('#l-price').addEventListener('input',calc);
-  $('#l-prod').addEventListener('change', ()=>{ const p = products().find(x=>x.id===$('#l-prod').value); if(p?.price && !doc){ $('#l-price').value=I.decIn(p.price); calc(); } });
-  $('#l-newprod').addEventListener('click', ()=>openProduct());
+  const prodInfo = ()=>{ const p = products().find(x=>x.id===$('#l-prod').value); if(!p) return;
+    const mg = catalogManager(p.manager);
+    $('#l-prodinfo').textContent = [mg? mg.name : p.manager, PRODUCT_TYPES[p.type], PRODUCT_MODES[p.mode], p.price? L('giá {p} ({date})', {p:fmtPrice(p.price), date:p.priceDate? fmtDate(p.priceDate) : '—'}) : ''].filter(Boolean).join(' · '); };
+  $('#l-prod').addEventListener('change', ()=>{ const p = products().find(x=>x.id===$('#l-prod').value); prodInfo(); if(p?.price && !doc){ $('#l-price').value=I.decIn(p.price); calc(); } });
+  prodInfo();
+  $('#l-newprod').addEventListener('click', ()=>openProduct(null, {onSaved:id=>openLot(null, id)}));
   $$('#lotForm input[name=l-side]').forEach(r=>r.addEventListener('change', ()=>{ $('#l-sellhint').hidden = $('#lotForm input[name=l-side]:checked').value!=='sell'; }));
   $('#lotForm').addEventListener('submit', async e=>{ e.preventDefault();
     const product=$('#l-prod').value, side=$('#lotForm input[name=l-side]:checked').value;
@@ -2016,14 +2067,30 @@ function openLot(doc=null, productId=null){
   if(doc && S.isOwner) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('vcbf').doc(doc.id).delete()); if(ok) toast(L('Đã xóa giao dịch')); return ok; });
 }
 
-function openProduct(doc=null){
+/* Fund catalogue (public/js/fund-catalog.js): management companies and their open-ended funds as of 10/10/2026. */
+const FC = window.STC_FUNDS || {managers:[], funds:[]};
+/** Catalogue company for a stored manager label, also for older labels such as "Techcom Capital (TCAM)". */
+function catalogManager(label){
+  const k = noAccent(label||''); if(!k) return null;
+  return FC.managers.find(m=>noAccent(m.id)===k) || FC.managers.find(m=>k.startsWith(noAccent(m.id.replace(/\s*\(.*\)$/,''))) || noAccent(m.name)===k) || null;
+}
+const catalogFund = code => FC.funds.find(f=>f.code.toUpperCase()===String(code||'').trim().toUpperCase()) || null;
+function openProduct(doc=null, opts={}){
   const hasLots = doc && S.vcbf.some(l=>(l.product||LEGACY_PRODUCT)===doc.id);
+  const m0 = catalogManager(doc?.manager) || (doc?.code && catalogFund(doc.code) ? FC.managers.find(m=>m.id===catalogFund(doc.code).manager) : null);
+  const mgrOther = !!(doc?.manager && !m0);
   openSheet(`<form id="prodForm" novalidate style="display:flex;flex-direction:column;gap:14px">
     <div class="panel-h"><h2>${doc?L('Sửa sản phẩm đầu tư'):L('Thêm sản phẩm đầu tư')}</h2>${closeBtn()}</div>
     <div class="row2">
-      <div class="field"><label for="p-code">${L('Mã sản phẩm')}</label><input class="input" id="p-code" value="${esc(doc?.code||'')}" placeholder="${L('vd: VCBF-TBF, DCDS, VNM')}" maxlength="24"></div>
-      <div class="field"><label for="p-manager">${L('Công ty quản lý / nơi mua')}</label><input class="input" id="p-manager" list="managerList" value="${esc(doc?.manager||'')}" placeholder="${L('vd: VCBF')}"><datalist id="managerList">${MANAGERS.map(m=>`<option value="${esc(m)}" label="${esc(L(m))}">`).join('')}</datalist></div>
+      <div class="field"><label for="p-mgr">${L('Công ty quản lý quỹ / nơi mua')}</label>
+        <select class="input" id="p-mgr"><option value="">${L('Chọn công ty…')}</option>${FC.managers.map(m=>`<option value="${esc(m.id)}" ${m0?.id===m.id?'selected':''}>${esc(m.id)}</option>`).join('')}<option value="__other" ${mgrOther?'selected':''}>${L('Khác (tự nhập)…')}</option></select>
+        <input class="input" id="p-manager" value="${esc(mgrOther? doc.manager : '')}" placeholder="${L('Tên công ty / nơi mua')}" ${mgrOther?'':'hidden'} style="margin-top:6px" maxlength="60">
+        <span class="hint" id="p-mgr-full">${m0? esc(m0.name) : ''}</span></div>
+      <div class="field"><label for="p-fund">${L('Sản phẩm quỹ')}</label>
+        <select class="input" id="p-fund"></select>
+        <span class="hint">${L('Danh mục quỹ cập nhật đến {date}. Quỹ mới chưa có trong danh sách: chọn “Khác” rồi tự nhập.', {date:fmtDate(FC.asOf||'')})}</span></div>
     </div>
+    <div class="field"><label for="p-code">${L('Mã sản phẩm')}</label><input class="input" id="p-code" value="${esc(doc?.code||'')}" placeholder="${L('vd: VCBF-TBF, DCDS, VNM')}" maxlength="24"></div>
     <div class="field"><label for="p-name">${L('Tên đầy đủ')}</label><input class="input" id="p-name" value="${esc(doc?.name||'')}" placeholder="${L('vd: Quỹ Đầu tư Trái phiếu VCBF')}" maxlength="120"></div>
     <div class="row2">
       <div class="field"><label for="p-type">${L('Loại')}</label><select class="input" id="p-type">${Object.entries(PRODUCT_TYPES).map(([k,l])=>`<option value="${k}" ${(doc?.type||'equity')===k?'selected':''}>${l}</option>`).join('')}</select></div>
@@ -2036,15 +2103,38 @@ function openProduct(doc=null){
     <div class="field"><label for="p-note">${L('Ghi chú')}</label><input class="input" id="p-note" value="${esc(doc?.note||'')}" placeholder="${L('vd: Mua định kỳ 10tr/tháng cho Dâu')}"></div>
     <div class="panel-actions">${doc && !doc._virtual? `<button type="button" class="btn danger" id="delBtn" ${hasLots?`disabled title="${L('Xóa các giao dịch của sản phẩm trước')}"`:''}>${L('Xóa')}</button><span class="spacer"></span>`:''}<button type="button" class="btn" data-close>${L('Hủy')}</button><button type="submit" class="btn primary">${L('Lưu sản phẩm')}</button></div>
   </form>`);
+  // company → its funds → code, full name and type filled in; every field stays editable
+  const mgrSel=$('#p-mgr'), fundSel=$('#p-fund');
+  const fillFunds = ()=>{
+    const mid = mgrSel.value, list = FC.funds.filter(f=>f.manager===mid), cur = catalogFund($('#p-code').value);
+    fundSel.innerHTML = `<option value="">${mid && mid!=='__other'? L('Chọn quỹ…') : L('Chọn công ty trước')}</option>`
+      + list.map(f=>`<option value="${esc(f.code)}" ${cur?.code===f.code?'selected':''}>${esc(f.code)} – ${esc(f.name)}</option>`).join('')
+      + `<option value="__other">${L('Khác (tự nhập mã)…')}</option>`;
+    fundSel.disabled = !mid;
+    const m = FC.managers.find(x=>x.id===mid); $('#p-mgr-full').textContent = m? m.name : '';
+    $('#p-manager').hidden = mid!=='__other';
+    if(mid==='__other'){ fundSel.value='__other'; $('#p-manager').focus(); }
+  };
+  const applyFund = f=>{ if(!f) return; $('#p-code').value=f.code; $('#p-name').value=f.name; if(PRODUCT_TYPES[f.type]!==undefined) $('#p-type').value=f.type; };
+  mgrSel.addEventListener('change', fillFunds);
+  fundSel.addEventListener('change', ()=>{ if(fundSel.value==='__other'){ $('#p-code').focus(); return; } applyFund(catalogFund(fundSel.value)); });
+  // typing a known code also fills the rest
+  $('#p-code').addEventListener('change', ()=>{ const f=catalogFund($('#p-code').value); if(!f) return;
+    if(mgrSel.value!==f.manager){ mgrSel.value=f.manager; fillFunds(); }
+    fundSel.value=f.code; if(!$('#p-name').value.trim()) $('#p-name').value=f.name; $('#p-type').value=f.type; });
+  fillFunds();
   $('#prodForm').addEventListener('submit', async e=>{ e.preventDefault();
     const code=$('#p-code').value.trim(); if(!code){ toast(L('Nhập mã sản phẩm')); $('#p-code').focus(); return; }
+    const managerLabel = mgrSel.value==='__other'? $('#p-manager').value.trim() : mgrSel.value;
     const price = $('#p-price').value.trim()? parseDecimal($('#p-price').value) : 0;
     if(isNaN(price)||price<0){ toast(L('Giá chưa hợp lệ. Ví dụ: 13732,75')); return; }
-    const body={code, name:$('#p-name').value.trim(), manager:$('#p-manager').value.trim(), type:$('#p-type').value, mode:$('#p-mode').value, unit:$('#p-unit').value.trim()||'đơn vị',
+    const body={code, name:$('#p-name').value.trim(), manager:managerLabel, type:$('#p-type').value, mode:$('#p-mode').value, unit:$('#p-unit').value.trim()||'đơn vị',
       price, priceDate: price && price!==(+doc?.price||0) ? todayISO() : (doc?.priceDate||''), note:$('#p-note').value.trim(), at:doc?.at||Date.now()};
     let newId = doc?.id;
     const ok = await write(async ()=>{ if(doc) await db.collection('products').doc(doc.id).set(body); else { const ref = await db.collection('products').add(body); newId = ref.id; } });
-    if(ok){ S.product = newId; toast(L('Đã lưu {code}', {code})); closeSheet(); }
+    if(ok){ S.product = newId; toast(L('Đã lưu {code}', {code})); closeSheet();
+      if(opts.onSaved){ // back to the transaction form with the new product selected, once the list has it
+        const t0=Date.now(); const wait=()=>{ if(products().some(p=>p.id===newId) || Date.now()-t0>3000) opts.onSaved(newId); else setTimeout(wait,100); }; wait(); } }
   });
   if(doc && !doc._virtual && !hasLots) armDelete($('#delBtn'), async ()=>{ const ok=await write(()=>db.collection('products').doc(doc.id).delete()); if(ok){ S.product=null; toast(L('Đã xóa sản phẩm')); } return ok; });
 }

@@ -19,7 +19,7 @@
     $('#authLead').textContent = setup ? L('Lần đầu sử dụng. Tài khoản này quản lý thành viên và dữ liệu của cả nhà.') : L('Đăng nhập để cùng chăm lo cho những điều quan trọng.');
     if (!$('#submitBtn').disabled) $('#submitBtn').textContent = setup ? L('Tạo tài khoản và bắt đầu') : L('Đăng nhập');
     $('#authFoot').textContent = setup ? L('Sau khi vào, thêm người nhà trong mục Thiết lập › Thành viên gia đình.') : L('Quên mật khẩu? Nhờ người quản lý sổ hỗ trợ.');
-    document.title = (setup ? L('Thiết lập lần đầu') : L('Đăng nhập')) + ' · ' + L('Sổ Tài Chính Nhà Mình');
+    document.title = (setup ? L('Thiết lập lần đầu') : L('Đăng nhập')) + ' · ' + L('Quản lý Tài chính Nhà Mình');
     paintPw();
     if (lastError) formError(lastError);
     const info = $('#formInfo');

@@ -667,3 +667,20 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 .sur-total{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px}
 .surplus-acts .btn .ico{width:14px;height:14px}
 .surplus-acts .btn[disabled]{opacity:.6;cursor:not-allowed}
+
+/* ---------- + / − keys for running totals ---------- */
+.amt-box{position:relative}
+.sum-ops{display:inline-flex;gap:4px;margin:0 6px;flex:none}
+.sum-ops button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);font-family:var(--font-num);font-size:18px;font-weight:600;line-height:1;display:grid;place-items:center;cursor:pointer;touch-action:manipulation}
+.sum-ops button:active{background:var(--accent-soft);border-color:var(--accent)}
+.m-in{display:flex;align-items:center;gap:6px;min-width:0}
+.m-in .input{flex:1;min-width:0}
+.m-in .sum-ops{margin:0;display:none}
+.mrow:focus-within .m-in .sum-ops{display:inline-flex}
+.mrow .sum-prev{grid-column:1/-1;justify-self:end;font-family:var(--font-num);font-size:12.5px;font-weight:600;color:var(--accent)}
+.mrow .sum-prev.neg{color:var(--neg)}
+.sum-ops button[hidden]{display:none}
+@media (max-width:520px){
+  /* while a figure is being edited it takes the full row, so the running total stays readable next to + / − */
+  .mrow:focus-within .m-in{grid-column:1/-1}
+}

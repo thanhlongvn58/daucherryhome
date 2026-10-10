@@ -7,7 +7,7 @@ const cfg = loadConfig();
 const app = createApp(cfg);
 const addr = await app.listen();
 
-console.log(`Sổ Tài Chính Nhà Mình đang chạy (Node ${process.version}).`);
+console.log(`Quản lý Tài chính Nhà Mình đang chạy (Node ${process.version}).`);
 if (typeof addr === 'string') {
   // Hosting platforms such as LiteSpeed hand over a socket path instead of a port.
   console.log(`  Đang nghe qua socket của máy chủ web: ${addr}`);
