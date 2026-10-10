@@ -611,3 +611,28 @@ td.days.pos{color:var(--pos)} td.days.warn{color:var(--warn)} td.days.neg{color:
 .greeting .g-name{font-style:normal;font-weight:600;color:var(--accent);letter-spacing:.005em}
 :root:lang(ja) .greeting{font-family:"Playfair Display","Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;font-style:normal}
 .greeting:empty{display:none}
+
+/* ---------- password eye ---------- */
+.pw-wrap .input{padding-right:52px}
+.pw-toggle{display:grid;place-items:center;width:42px;height:38px;padding:0;color:var(--muted)}
+.pw-toggle:hover,.pw-toggle[aria-pressed="true"]{color:var(--accent)}
+.pw-toggle .ico{width:20px;height:20px}
+/* ---------- privacy mode: money is blurred until the eye is tapped again ---------- */
+.hero-label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.eye-btn{display:inline-grid;place-items:center;width:30px;height:30px;margin:-6px 0;border:0;border-radius:8px;background:rgba(255,255,255,.08);color:var(--hero-gold);cursor:pointer}
+.eye-btn:hover{background:rgba(255,255,255,.16)}
+.eye-btn .ico{width:17px;height:17px}
+@media (pointer:coarse){.eye-btn{width:40px;height:40px;margin:-10px 0}}
+.privacy .hero-nav,.privacy .hero-meta b,.privacy .hero-meta .m,.privacy .insight .d,.privacy .plan li,.privacy .alert .d,.privacy .alert .t,.privacy .hy .v,.privacy .alloc-legend .a,
+.privacy .kpi .value,.privacy .kpi .foot b,.privacy .kpi .foot .chip,
+.privacy td:not(:first-child):not(.txt):not(.wrap),.privacy .row .amt,.privacy .mat .amt,.privacy .mini b,.privacy .mini em,
+.privacy .mtotals b,.privacy .cmp .v,.privacy .cmp .s,.privacy .cmp .d,.privacy .recon .v,
+.privacy .donut .c2,.privacy .donut .c3,.privacy .chart svg text[text-anchor="end"],.privacy .card-h .sub b,.privacy .card-h .sub.num,
+.privacy .mat .s,.privacy :is([data-budget],[data-opening],[data-nav],[data-cfg-amount],[data-exact]):not(:focus),.privacy .mrow input:not(:focus),.privacy .mrow .hint,.privacy .amt-prev
+{filter:blur(8px);user-select:none;transition:filter .15s}
+.privacy .chart .tip{display:none!important}
+@media (prefers-reduced-motion:reduce){.privacy *{transition:none}}
+@media (max-width:900px){
+  .top .privacy-btn{position:absolute;top:0;right:52px}
+  .top-title{padding-right:104px}
+}

@@ -742,9 +742,9 @@ function heroCard(){
   return `<section class="hero" aria-label="${L('Tổng tài sản ròng')}">
     <div class="hero-row">
       <div style="min-width:0">
-        <div class="eyebrow">${label}</div>
+        <div class="eyebrow hero-label">${label}<button type="button" class="eye-btn" data-privacy aria-pressed="${isPrivate()}" aria-label="${isPrivate()? L('Hiện số tiền') : L('Ẩn số tiền')}" title="${isPrivate()? L('Hiện số tiền') : L('Ẩn số tiền')}">${privacyBtnInner()}</button></div>
         <div class="hero-nav">${N.total? vnd(N.total) : '—'}<small>₫</small></div>
-        <div class="hero-meta">${prevNav && N.total? `<span>${L('So với cuối {py}:', {py:y-1})} <b class="up">${pct(growth)}</b> (${signedC(N.total-prevNav)})</span>`:''}<span>${L('Thu {y}:', {y})} <b>${compact(yt.income)}</b></span><span>${L('Chi {y}:', {y})} <b>${compact(yt.exp)}</b></span></div>
+        <div class="hero-meta">${prevNav && N.total? `<span>${L('So với cuối {py}:', {py:y-1})} <b class="up">${pct(growth)}</b> <span class="m">(${signedC(N.total-prevNav)})</span></span>`:''}<span>${L('Thu {y}:', {y})} <b>${compact(yt.income)}</b></span><span>${L('Chi {y}:', {y})} <b>${compact(yt.exp)}</b></span></div>
       </div>
       <div class="hero-years" aria-hidden="true">${hv.map(h=>`<div class="hy ${h.now?'now':''}"><span class="v">${compact(h.v)}</span><span class="bar" style="height:${Math.max(4,60*h.v/hmax)}px"></span><span>${h.y}</span></div>`).join('')}</div>
     </div>
@@ -997,11 +997,11 @@ function viewInvest(){
     <a class="card kpi" href="#emergency"><div class="label"><i class="swatch" style="background:var(--f-emergency)"></i>${L('Quỹ khẩn cấp')}</div><div class="value">${compact(em.bal)}</div>
       <div class="foot">${L('Đủ {n} tháng chi tiêu · mục tiêu {target}', {n:`<b>${fmt1(em.months)}</b>`, target:em.target})}</div><div class="foot">${L('Thu – chi {y}:', {y:S.year})} <b class="${em.yearNet<0?'neg':'pos'}">${signedC(em.yearNet)}</b></div>${more}</a>
     <a class="card kpi" href="#kids"><div class="label"><i class="swatch" style="background:var(--f-kids)"></i>${L('Quỹ cho con')}</div><div class="value">${compact(v.value)}</div>
-      <div class="foot">${L('Vốn góp')} <b>${compact(v.cost)}</b></div><div class="foot">${L('Lãi/lỗ')} <b class="${v.pl>=0?'pos':'neg'}">${pct(v.plPct,2)}</b> · ${signedC(v.pl)}</div>${more}</a>
+      <div class="foot">${L('Vốn góp')} <b>${compact(v.cost)}</b></div><div class="foot">${L('Lãi/lỗ')} <b class="${v.pl>=0?'pos':'neg'}">${pct(v.plPct,2)}</b> · <b>${signedC(v.pl)}</b></div>${more}</a>
     <a class="card kpi" href="#settings"><div class="label"><i class="swatch" style="background:var(--f-risk)"></i>${L('Đầu tư rủi ro cao')}</div><div class="value">${compact(N.parts.risk)}</div>
       <div class="foot">${esc(cfg().highRiskNote)||L('Chưa có danh mục')}</div><span class="card-link">${L('Cập nhật trong Thiết lập')} ${ico(ICONS.arrow)}</span></a>
   </div>
-  <div class="card section-gap"><div class="card-h"><h2>${L('Phân bổ tài sản')}</h2><span class="sub">${L('Tổng {v} ₫', {v:vnd(N.total)})}</span></div>
+  <div class="card section-gap"><div class="card-h"><h2>${L('Phân bổ tài sản')}</h2><span class="sub">${L('Tổng {v} ₫', {v:`<b>${vnd(N.total)}</b>`})}</span></div>
     <div class="tbl-wrap"><table><thead><tr><th>${L('Hạng mục')}</th><th>${L('Giá trị (₫)')}</th><th>${L('Tỷ trọng')}</th><th class="l" style="min-width:180px"></th></tr></thead>
     <tbody>${rows.map(([k,l,h])=>`<tr class="click" data-href="${h}"><td><i class="swatch" style="background:var(--f-${k});margin-right:8px"></i>${l}</td><td>${vnd(N.parts[k])}</td><td>${N.total?pctPlain(N.parts[k]/N.total):'—'}</td><td class="l"><div class="meter"><i style="width:${N.total?N.parts[k]/N.total*100:0}%;background:var(--f-${k})"></i></div></td></tr>`).join('')}
       <tr class="total"><td>${L('Tổng tài sản ròng')}</td><td>${vnd(N.total)}</td><td>100%</td><td></td></tr></tbody></table></div>
@@ -1100,7 +1100,7 @@ function viewEmergency(){
     ${kpi(L('Thu – Chi quỹ năm {y}', {y}), `<span class="${em.yearNet<0?'neg':'pos'}">${signed(em.yearNet)}</span><small>₫</small>`, L('Thu {in} · Chi {out} (đến nay)', {in:`<b>${compact(em.yearIn)}</b>`, out:`<b>${compact(em.yearOut)}</b>`}))}
     <div class="card kpi"><div class="label">${L('Tiến độ mốc an toàn tối thiểu {n} tháng', {n:EMERGENCY_MIN})}</div><div class="value ${minPct>=1?'pos':''}">${pctPlain(Math.min(minPct,9.99),0)}</div>
       <div class="meter ${minPct>=1?'pos':'gold'}" style="margin-top:9px"><i style="width:${Math.min(100,minPct*100)}%"></i></div>
-      <div class="foot">${L('Mốc {v} ₫', {v:vnd(em.minAmt)})} · ${minPct>=1? `<span class="chip pos">${L('Đã vượt {v}', {v:compact(em.bal-em.minAmt)})}</span>` : `<span class="chip warn">${L('Còn thiếu {v} ₫', {v:vnd(em.minAmt-em.bal)})}</span>`}</div></div>
+      <div class="foot">${L('Mốc {v} ₫', {v:`<b>${vnd(em.minAmt)}</b>`})} · ${minPct>=1? `<span class="chip pos">${L('Đã vượt {v}', {v:compact(em.bal-em.minAmt)})}</span>` : `<span class="chip warn">${L('Còn thiếu {v} ₫', {v:vnd(em.minAmt-em.bal)})}</span>`}</div></div>
   </div>
   <div class="grid g-split section-gap">
     <div class="card"><div class="card-h"><h2>${L('Dòng tiền quỹ theo năm')}</h2><span class="sub">${L('{y} – hiện tại', {y:years[0]||y})}</span></div>
@@ -1240,6 +1240,24 @@ function viewAppearance(){
     <div class="theme-pick" role="radiogroup" aria-label="${L('Chế độ giao diện')}">${['auto','light','dark'].map(k=>`<button type="button" role="radio" aria-checked="${m===k}" data-theme-set="${k}" class="theme-opt ${m===k?'on':''}"><span class="theme-prev ${k}"><i></i><i></i><i></i></span><span class="theme-name">${ico(THEME_ICON[k])}${THEME_LABEL[k]}</span><span class="hint">${k==='auto'?L('Tự đổi theo cài đặt sáng/tối của điện thoại, máy tính'):k==='light'?L('Nền sáng, chữ đậm — dễ đọc ban ngày'):L('Nền tối, dịu mắt — dùng buổi tối')}</span></button>`).join('')}</div>
     <p class="hint" style="margin:10px 0 0">${L('Có thể đổi nhanh bằng nút {icon} ở góc trên.', {icon:ico(THEME_ICON[m])})}</p></div>`;
 }
+/* ---------- privacy: blur money on screen (per device, remembered) ---------- */
+const EYE = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+const EYE_OFF = '<path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 5.4-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+const PRIV_KEY = 'stc.privacy';
+const isPrivate = () => document.documentElement.classList.contains('privacy');
+function setPrivacy(on){
+  document.documentElement.classList.toggle('privacy', on);
+  try{ if(on) localStorage.setItem(PRIV_KEY,'1'); else localStorage.removeItem(PRIV_KEY); }catch(e){}
+  paintPrivacy();
+}
+/** Open eye = amounts shown (tap to hide); crossed eye = amounts hidden (tap to show). */
+function privacyBtnInner(){ return ico(isPrivate()? EYE_OFF : EYE); }
+function paintPrivacy(){
+  const label = isPrivate()? L('Hiện số tiền') : L('Ẩn số tiền');
+  $$('#privacyBtn, [data-privacy]').forEach(b=>{ b.innerHTML = privacyBtnInner(); b.setAttribute('aria-label', label); b.title = label; b.setAttribute('aria-pressed', String(isPrivate())); });
+}
+try{ if(localStorage.getItem(PRIV_KEY)==='1') document.documentElement.classList.add('privacy'); }catch(e){}
+
 /* ---------- language ---------- */
 const LANG_HINT = {vi:'Mặc định', en:'Giao diện tiếng Anh', ja:'Giao diện tiếng Nhật'};
 function viewLanguage(){
@@ -1423,6 +1441,7 @@ main.addEventListener('click', async e=>{
   const t = e.target.closest('button, a, td[data-goto], tr[data-edit-lot], tr[data-product], tr[data-goto-row], tr[data-href], tr[data-set-year], path[data-seg]'); if(!t) return;
   const d = t.dataset;
   if(d.seg){ revealDonut(d.seg); return; }
+  if('privacy' in d){ setPrivacy(!isPrivate()); return; }
   if(d.themeSet){ setTheme(d.themeSet); render(); toast(L('Giao diện: {mode}', {mode:THEME_LABEL[d.themeSet]})); return; }
   if(d.langSet){ setLang(d.langSet); return; }
   if(d.setYear){ setYear(+d.setYear); return; }
@@ -1541,9 +1560,11 @@ $('#themeBtn')?.addEventListener('click', ()=>{ const order=['auto','light','dar
 document.addEventListener('themechange', ()=>{ paintThemeBtn(); scheduleRender(); });
 paintThemeBtn();
 $('#langSel')?.addEventListener('change', e=>setLang(e.target.value));
-document.addEventListener('langchange', ()=>{ paintLangSel(); paintThemeBtn(); if(!$('#sheet').hidden) closeSheet(); render(); toast(L('Đã chuyển sang tiếng Việt')); });
+document.addEventListener('langchange', ()=>{ paintLangSel(); paintPrivacy(); paintThemeBtn(); if(!$('#sheet').hidden) closeSheet(); render(); toast(L('Đã chuyển sang tiếng Việt')); });
 paintLangSel();
 $('#logoutTop')?.addEventListener('click', ()=>FIN.logout());
+$('#privacyBtn')?.addEventListener('click', ()=>{ setPrivacy(!isPrivate()); toast(isPrivate()? L('Đã ẩn số tiền') : L('Đã hiện số tiền')); });
+paintPrivacy();
 $('#addBtn').addEventListener('click', ()=>openTx({kind:quickKind()}));
 $('#fab').addEventListener('click', ()=>openTx({kind:quickKind()}));
 window.addEventListener('beforeunload', e=>{ if(Object.keys(S.drafts).some(k=>k.startsWith('m:'))){ const dv=monthDraftValues(S.year,S.month); if(dv._dirty){ e.preventDefault(); e.returnValue=''; } } });

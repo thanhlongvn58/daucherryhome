@@ -711,6 +711,14 @@ window.STC_I18N_DICT = {
 "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.": ["Can't reach the server. Check your network and try again.", "サーバーに接続できません。ネットワークを確認してもう一度お試しください。"],
 "Không kết nối được máy chủ.": ["Can't reach the server.", "サーバーに接続できません。"],
 
+/* ---------- privacy ---------- */
+"Ẩn số tiền": ["Hide amounts", "金額を隠す"],
+"Hiện số tiền": ["Show amounts", "金額を表示"],
+"Đã ẩn số tiền": ["Amounts hidden", "金額を非表示にしました"],
+"Đã hiện số tiền": ["Amounts shown", "金額を表示しました"],
+"Hiện mật khẩu": ["Show password", "パスワードを表示"],
+"Ẩn mật khẩu": ["Hide password", "パスワードを隠す"],
+
 /* ---------- greeting ---------- */
 "Chào buổi sáng, {name}": ["Good morning, {name}", "おはようございます、{name}さん"],
 "Chào buổi chiều, {name}": ["Good afternoon, {name}", "こんにちは、{name}さん"],

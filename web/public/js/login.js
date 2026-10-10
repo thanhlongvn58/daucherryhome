@@ -20,7 +20,7 @@
     if (!$('#submitBtn').disabled) $('#submitBtn').textContent = setup ? L('Tạo tài khoản và bắt đầu') : L('Đăng nhập');
     $('#authFoot').textContent = setup ? L('Sau khi vào, thêm người nhà trong mục Thiết lập › Thành viên gia đình.') : L('Quên mật khẩu? Nhờ người quản lý sổ đặt lại giúp bạn.');
     document.title = (setup ? L('Thiết lập lần đầu') : L('Đăng nhập')) + ' · ' + L('Sổ Tài Chính Nhà Mình');
-    $('#pwToggle').textContent = $('#password').type === 'password' ? L('Hiện') : L('Ẩn');
+    paintPw();
     if (lastError) formError(lastError);
     const info = $('#formInfo');
     if (params.has('timeout') && !setup) { info.textContent = L('Bạn đã được đăng xuất tự động sau 20 phút không thao tác để bảo vệ thông tin.'); info.hidden = false; } else info.hidden = true;
@@ -46,12 +46,18 @@
   /** Messages are kept in Vietnamese (as the server sends them) and shown in the current language. */
   function formError(msg) { lastError = msg || ''; const e = $('#formError'); e.textContent = msg ? (I ? I.tMsg(msg) : msg) : ''; e.hidden = !msg; }
 
-  $('#pwToggle').addEventListener('click', e => {
-    const p = $('#password'); const show = p.type === 'password';
-    p.type = show ? 'text' : 'password';
-    e.currentTarget.textContent = show ? L('Ẩn') : L('Hiện');
-    e.currentTarget.setAttribute('aria-pressed', String(show));
-    p.focus();
+  /** Eye icon: open eye = tap to show the password, crossed eye = tap to hide it again. */
+  const EYE = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+  const EYE_OFF = '<path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 5.4-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+  function paintPw() {
+    const b = $('#pwToggle'), shown = $('#password').type === 'text';
+    b.querySelector('svg').innerHTML = shown ? EYE_OFF : EYE;
+    const label = shown ? L('Ẩn mật khẩu') : L('Hiện mật khẩu');
+    b.setAttribute('aria-label', label); b.title = label; b.setAttribute('aria-pressed', String(shown));
+  }
+  $('#pwToggle').addEventListener('click', () => {
+    const p = $('#password'); p.type = p.type === 'password' ? 'text' : 'password';
+    paintPw(); p.focus();
   });
   for (const id of ['name', 'username', 'password']) $('#' + id).addEventListener('input', () => fieldError(id, ''));
 
