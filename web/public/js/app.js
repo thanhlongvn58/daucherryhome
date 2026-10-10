@@ -1362,7 +1362,12 @@ function paintPrivacy(){
   const label = isPrivate()? L('Hiện số tiền') : L('Ẩn số tiền');
   $$('#privacyBtn, [data-privacy]').forEach(b=>{ b.innerHTML = privacyBtnInner(); b.setAttribute('aria-label', label); b.title = label; b.setAttribute('aria-pressed', String(isPrivate())); });
 }
-try{ if(localStorage.getItem(PRIV_KEY)==='1') document.documentElement.classList.add('privacy'); }catch(e){}
+/* Amounts start hidden every time the book is opened (new sign-in or new browser session); tapping the eye shows
+   them for the rest of that session. */
+try{
+  if(!sessionStorage.getItem('stc.privOpened')){ localStorage.setItem(PRIV_KEY,'1'); sessionStorage.setItem('stc.privOpened','1'); }
+  if(localStorage.getItem(PRIV_KEY)==='1') document.documentElement.classList.add('privacy');
+}catch(e){ document.documentElement.classList.add('privacy'); }
 
 /* ---------- language ---------- */
 const LANG_HINT = {vi:'Mặc định', en:'Giao diện tiếng Anh', ja:'Giao diện tiếng Nhật'};

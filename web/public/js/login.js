@@ -91,6 +91,8 @@
           if (window.PasswordCredential && navigator.credentials) { try { await navigator.credentials.store(new PasswordCredential({ id: username, password, name: username })); } catch { /* declined */ } }
         } else store.set(REMEMBER, null);
       }
+      // a fresh sign-in always opens with amounts hidden
+      try { sessionStorage.removeItem('stc.privOpened'); localStorage.setItem('stc.privacy', '1'); } catch { /* private mode */ }
       location.replace(safeNext());
     } catch {
       formError('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
